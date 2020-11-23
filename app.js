@@ -1,4 +1,5 @@
 const container = document.querySelector('#container');
+console.log()
 
 // VTK renderWindow/renderer
 const renderWindow = vtk.Rendering.Core.vtkRenderWindow.newInstance();
@@ -23,13 +24,13 @@ interactor.setInteractorStyle(trackball);
 
 // Pipeline
 
-let url = 'https://hordurps.github.io/0_deg_magU.vtk'
-const reader = vtk.IO.Legacy.vtkPolyDataReader.newInstance();
+let url = 'https://hordurps.github.io/magU.vtp'
+const reader = vtk.IO.XML.vtkXMLPolyDataReader.newInstance();
+const mapper = vtk.Rendering.Core.vtkMapper.newInstance();
+const actor  = vtk.Rendering.Core.vtkActor.newInstance();
+
 reader.setUrl(url).then(() => {
     const polydata = reader.getOutputData(0);
-    const actor  = vtk.Rendering.Core.vtkActor.newInstance();
-    const mapper = vtk.Rendering.Core.vtkMapper.newInstance();
-
     actor.setMapper(mapper);
     mapper.setInputConnection(reader.getOutputPort());
     renderer.addActor(actor);
