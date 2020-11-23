@@ -28,19 +28,23 @@ interactor.setInteractorStyle(trackball);
 let url = 'https://hordurps.github.io/magU.vtp'
 const reader = vtk.IO.XML.vtkXMLPolyDataReader.newInstance();
 
-const lut = vtk.Rendering.Core.vtkColorTransferFunction.newInstance();
+// decide the colormaps
 const cmaps = vtk.Rendering.Core.vtkColorTransferFunction.vtkColorMaps;
 const cmap = cmaps.getPresetByName('jet');
+
+// create a lookup table
+const lut = vtk.Rendering.Core.vtkColorTransferFunction.newInstance();
 lut.applyColorMap(cmap);
-const mapper = vtk.Rendering.Core.vtkMapper.newInstance({
-    interpolateScalarsBeforeMapping: false,
-    useLookupTableScalarRange: false,
-    lut,
-    scalarVisibility: true,
-});
-mapper.setScalarModeToDefault();
-mapper.setColorModeToMapScalars();
+lut.setMappingRange(0, 256);
+lut.updateRange();
+
+const mapper = vtk.Rendering.Core.vtkMapper.newInstance();
+mapper.setLookupTable(lut);
 mapper.setColorByArrayName('mag(U)');
+mapper.setColorModeToMapScalars();
+mapper.setInterpolateScalarsBeforeMapping();
+mapper.setScalarModeToUsePointFieldData();
+mapper.setScalarVisibility(true);
 mapper.setScalarRange([0, 15])
 
 const actor  = vtk.Rendering.Core.vtkActor.newInstance();
