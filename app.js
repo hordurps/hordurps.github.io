@@ -22,11 +22,25 @@ interactor.bindEvents(container);
 const trackball = vtk.Interaction.Style.vtkInteractorStyleTrackballCamera.newInstance();
 interactor.setInteractorStyle(trackball);
 
-// Pipeline
+// Pipeline (reader, mapper, actor)
 
+// Need to read VTP files instead of VTK
 let url = 'https://hordurps.github.io/magU.vtp'
 const reader = vtk.IO.XML.vtkXMLPolyDataReader.newInstance();
-const mapper = vtk.Rendering.Core.vtkMapper.newInstance();
+
+const lut = vtk.Rendering.Core.vtkColorTransferFunction.newInstance();
+const cmaps = vtk.Rendering.Core.vtkColorTransferFunction.vtkColorMaps;
+const cmap = cmaps.getPresetByName('jet');
+lut.applyColorMap(cmap);
+const mapper = vtk.Rendering.Core.vtkMapper.newInstance({
+    interpolateScalarsBeforeMapping: false,
+    useLookupTableScalarRange: false,
+    lut,
+    scalarVisibility: true,
+});
+mapper.setScalarModeToDefault();
+mapper.setColorModeToMapScalars();
+mapper.setScalarRange([0, 15])
 const actor  = vtk.Rendering.Core.vtkActor.newInstance();
 
 reader.setUrl(url).then(() => {
@@ -36,6 +50,10 @@ reader.setUrl(url).then(() => {
     renderer.addActor(actor);
 
     // Render
+    renderer.getActiveCamera().setPosition(0, 0, 750);
+    renderer.getActiveCamera().setFocalPoint(0, 0, 0,41);
+    renderer.getActiveCamera().setParallelScale(980);
+
     renderer.resetCamera();
     renderWindow.render();
 });
