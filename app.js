@@ -40,8 +40,11 @@ const mapper = vtk.Rendering.Core.vtkMapper.newInstance({
 });
 mapper.setScalarModeToDefault();
 mapper.setColorModeToMapScalars();
+mapper.setColorByArrayName('magU');
 mapper.setScalarRange([0, 15])
+
 const actor  = vtk.Rendering.Core.vtkActor.newInstance();
+actor.getProperty().setRGBTransferFunction(0, lut);
 
 reader.setUrl(url).then(() => {
     const polydata = reader.getOutputData(0);
@@ -50,10 +53,10 @@ reader.setUrl(url).then(() => {
     renderer.addActor(actor);
 
     // Render
+    renderer.resetCamera();
     renderer.getActiveCamera().setPosition(0, 0, 750);
     renderer.getActiveCamera().setFocalPoint(0, 0, 0,41);
     renderer.getActiveCamera().setParallelScale(980);
 
-    renderer.resetCamera();
     renderWindow.render();
 });
