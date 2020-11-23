@@ -40,12 +40,10 @@ const mapper = vtk.Rendering.Core.vtkMapper.newInstance({
 });
 mapper.setScalarModeToDefault();
 mapper.setColorModeToMapScalars();
-mapper.setColorByArrayName('magU');
+mapper.setColorByArrayName('mag(U)');
 mapper.setScalarRange([0, 15])
 
 const actor  = vtk.Rendering.Core.vtkActor.newInstance();
-actor.getProperty().setRGBTransferFunction(0, lut);
-
 reader.setUrl(url).then(() => {
     const polydata = reader.getOutputData(0);
     actor.setMapper(mapper);
