@@ -56,8 +56,8 @@ reader.setUrl(url).then(() => {
 
     // Render
     renderer.resetCamera();
-    renderer.getActiveCamera().setPosition(0, 0, 750);
-    renderer.getActiveCamera().setFocalPoint(0, 0, 0,41);
+    renderer.getActiveCamera().setPosition(0, 0, 1050);
+    renderer.getActiveCamera().setFocalPoint(0, 0, 0.41);
     renderer.getActiveCamera().setParallelScale(980);
 
     renderWindow.render();
