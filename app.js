@@ -22,9 +22,8 @@ const trackball = vtk.Interaction.Style.vtkInteractorStyleTrackballCamera.newIns
 interactor.setInteractorStyle(trackball);
 
 // Pipeline
-// const cone   = vtk.Filters.Sources.vtkConeSource.newInstance();
 
-let url = 'https://github.com/hordurps/hordurps.github.io/blob/master/0_deg_magU.vtk'
+let url = 'https://hordurps.github.io/0_deg_magU.vtk'
 const reader = vtk.IO.Legacy.vtkPolyDataReader.newInstance();
 reader.setUrl(url).then(() => {
     const polydata = reader.getOutputData(0);
