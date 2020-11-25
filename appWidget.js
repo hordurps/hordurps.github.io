@@ -21,13 +21,26 @@ const { CaptureOn } = WidgetManagerConstants;
 
 const WIDGET_BUILDERS = {
     stlWidget(widgetManager){
-        return widgetManager.addWidget(
+        const stlurl = 'https://hordurps.github.io/BOI.stl';
+        const stlReader = widgetManager.addWidget(
             vtk.IO.Geometry.vtkSTLReader.newInstance({
-                setUrl: 'https://hordurps.github.io/BOI.stl'
-            });
+                label: 'STL',
+            })
         );
+        const stlMapper = vtk.Rendering.Core.vtkMapper.newInstance({
+            scalarVisibility: false,
+        });
+        const stlActor = vtk.Rendering.Core.vtkActor.newInstance();
+        stlActor.setMapper(stlMapper);
+        stlMapper.setInputConnection(stlReader.getOuputPort());
+        stlReader.setUrl(stlurl).then(() => {
+            renderer.addActor(stlActor);
+            renderer.resetCamera();
+            renderWindow.render();
+        });
+        return stlReader
     },
-}
+};
 
 // WebGL/OpenGL impl
 //const openGLRenderWindow = vtk.Rendering.OpenGL.vtkRenderWindow.newInstance();
