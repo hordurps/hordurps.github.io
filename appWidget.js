@@ -1,5 +1,4 @@
 const container = document.querySelector('#container');
-console.log()
 
 const fullScreenRenderer = vtk.Rendering.Misc.vtkFullScreenRenderWindow.newInstance();
 
@@ -19,9 +18,10 @@ import controlPanel from './controlPanel.html';
 const { CaptureOn } = WidgetManagerConstants;
 
 
+const stlurl = 'https://hordurps.github.io/BOI.stl';
+
 const WIDGET_BUILDERS = {
     stlWidget(widgetManager){
-        const stlurl = 'https://hordurps.github.io/BOI.stl';
         const stlReader = widgetManager.addWidget(
             vtk.IO.Geometry.vtkSTLReader.newInstance({
                 label: 'STL',
@@ -42,6 +42,7 @@ const WIDGET_BUILDERS = {
     },
 };
 
+console.log(document.body)
 // WebGL/OpenGL impl
 //const openGLRenderWindow = vtk.Rendering.OpenGL.vtkRenderWindow.newInstance();
 //openGLRenderWindow.setContainer(container);
