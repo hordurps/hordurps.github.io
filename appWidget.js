@@ -37,6 +37,7 @@ const stlActor = vtk.Rendering.Core.vtkActor.newInstance();
 
 function changeArray(e) {
     mapper.setColorByArrayName(e);
+    console.log(e)
 };
 
 function stlWidget() {
@@ -79,7 +80,8 @@ lut.updateRange();
 
 const mapper = vtk.Rendering.Core.vtkMapper.newInstance();
 mapper.setLookupTable(lut);
-mapper.setColorByArrayName('mag(U)');
+//mapper.setColorByArrayName('mag(U)');
+mapper.setColorByArrayName('0deg');
 mapper.setColorModeToMapScalars();
 mapper.setInterpolateScalarsBeforeMapping();
 mapper.setScalarModeToUsePointFieldData();
@@ -162,7 +164,7 @@ fullScreenRenderer.addController(`<table>
     
 
 const widgetListElem = document.querySelector('.widgetList');
-const selectElem = document.querySelector('select');
+// const selectElem = document.querySelector('select');
 const buttonCreate = document.querySelector('button.create');
 const buttonDelete = document.querySelector('button.delete');
 
@@ -170,7 +172,9 @@ const comfortElem = document.querySelector('select#comfort-select');
 const velocityElem = document.querySelector('select#velocity-select');
 
 velocityElem.addEventListener('change', (e) => {
-    changeArray(e);
+    //const selectElem = Number(e.target.value);
+    const selectElem = document.getElementById('velocity-select').value;
+    changeArray(selectElem);
     renderWindow.render();
 });
 
