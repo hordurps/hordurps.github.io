@@ -10,62 +10,75 @@ const renderWindow = fullScreenRenderer.getRenderWindow();
 
 
 
-//const WIDGET_BUILDERS = {
-//    stlWidget(widgetManager){
-//        const stlReader = widgetManager.addWidget(
-//            vtk.IO.Geometry.vtkSTLReader.newInstance({
-//                label: 'STL',
-//            })
-//        );
-//        const stlMapper = vtk.Rendering.Core.vtkMapper.newInstance({
-//            scalarVisibility: false,
-//        });
-//        const stlActor = vtk.Rendering.Core.vtkActor.newInstance();
-//        stlActor.setMapper(stlMapper);
-//        stlMapper.setInputConnection(stlReader.getOuputPort());
-//        stlReader.setUrl(stlurl).then(() => {
-//            renderer.addActor(stlActor);
-//            renderer.resetCamera();
-//            renderWindow.render();
-//        });
-//        return stlReader
-//    },
-//};
-
-const stlActor = vtk.Rendering.Core.vtkActor.newInstance();
-
-
 function changeArray(e) {
     mapper.setColorByArrayName(e);
     console.log(e)
 };
+var stlMappers = {};
+var stlActors = {};
+var stlReaders = {};
 
-function stlWidget() {
-    const stlurl = 'https://hordurps.github.io/BOI.stl';
+function createSTL() {
     const stlReader = vtk.IO.Geometry.vtkSTLReader.newInstance({
         label: 'STL',
     });
+    const stlActor = vtk.Rendering.Core.vtkActor.newInstance();
     const stlMapper = vtk.Rendering.Core.vtkMapper.newInstance({
         scalarVisibility: false,
     });
-    stlActor.setMapper(stlMapper);
-    stlMapper.setInputConnection(stlReader.getOutputPort());
-    stlReader.setUrl(stlurl).then(() => {
-        renderer.addActor(stlActor);
+    return [stlReader,stlMapper, stlActor];
+};
+
+function stlWidget(selectElem) {
+    if (selectElem.includes('BOI')) {
+        var stlurl = 'https://hordurps.github.io/BOI.stl';
+    } else {
+        var stlurl = 'https://hordurps.github.io/BDGS.stl';
+    }
+//    stlActors.selectElem = stlActor;
+//    stlMappers.selectElem = stlMapper;
+//    stlReaders.selectElem = stlReader;
+    console.log(stlActors.selectElem);
+    var stls = createSTL();
+    stlReaders.selectElem = stls[0]; 
+    stlMappers.selectElem = stls[1]; 
+    stlActors.selectElem = stls[2];
+    console.log(stlReaders.selectElem);
+    console.log(stlActors.selectElem);
+    console.log(stlMappers.selectElem);
+
+//    stlActors.selectElem.setMapper(stlMapper);
+//    stlMappers.selectElem.setInputConnection(stlReader.getOutputPort());
+    stlActors.selectElem.setMapper(stlMappers.selectElem);
+    stlMappers.selectElem.setInputConnection(stlReaders.selectElem.getOutputPort());
+    stlReaders.selectElem.setUrl(stlurl).then(() => {
+        renderer.addActor(stlActors.selectElem);
         renderer.resetCamera();
         renderWindow.render();
     });
-    return stlActor
+
+
+    //stlActor.setMapper(stlMapper);
+    //stlMapper.setInputConnection(stlReader.getOutputPort());
+    //stlReader.setUrl(stlurl).then(() => {
+    //    renderer.addActor(stlActor);
+    //    renderer.resetCamera();
+    //    renderWindow.render();
+    //});
+    return stlActors.selectElem
 
 };
 
+let comforts = ['winter - LDDC', 'summer - LDDC', 'allyear - LDDC', 'winter - COL', 'summer - COL', 'allyear - COL'];
+let velocities = ['0deg', '30deg', '60deg', '90deg', '120deg', '150deg', '180deg', '210deg', '240deg', '270deg', '300deg', '330deg'];
 //console.log(document.body)
 
 // Pipeline (reader, mapper, actor)
 
 // Need to read VTP files instead of VTK
 // let url = 'https://hordurps.github.io/magU.vtp'
-let url = 'https://hordurps.github.io/velocities.vtp'
+//let magUurl = 'https://hordurps.github.io/velocities.vtp'
+let magUurl = 'https://hordurps.github.io/comfortAndVelocity.vtp'
 const reader = vtk.IO.XML.vtkXMLPolyDataReader.newInstance();
 
 // decide the colormaps
@@ -81,15 +94,15 @@ lut.updateRange();
 const mapper = vtk.Rendering.Core.vtkMapper.newInstance();
 mapper.setLookupTable(lut);
 //mapper.setColorByArrayName('mag(U)');
-mapper.setColorByArrayName('0deg');
+//mapper.setColorByArrayName('0deg');
 mapper.setColorModeToMapScalars();
 mapper.setInterpolateScalarsBeforeMapping();
 mapper.setScalarModeToUsePointFieldData();
 mapper.setScalarVisibility(true);
-mapper.setScalarRange([0, 15])
+//mapper.setScalarRange([0, 15])
 
 const actor  = vtk.Rendering.Core.vtkActor.newInstance();
-reader.setUrl(url).then(() => {
+reader.setUrl(magUurl).then(() => {
     const polydata = reader.getOutputData(0);
     actor.setMapper(mapper);
     mapper.setInputConnection(reader.getOutputPort());
@@ -103,6 +116,40 @@ reader.setUrl(url).then(() => {
 
     renderWindow.render();
 });
+
+const lutComfort = vtk.Rendering.Core.vtkColorTransferFunction.newInstance();
+lutComfort.addRGBPoint(0.0, 0.56, 0.74, 0.56); // DarkSeaGreen
+lutComfort.addRGBPoint(0.25, 0.53, 0.81, 0.98); // LightSkyBlue
+lutComfort.addRGBPoint(0.50, 0.94, 0.92, 0.55); // Khaki
+lutComfort.addRGBPoint(0.75, 1.0, 0.65, 0.0); // Orange
+lutComfort.addRGBPoint(1.0, 0.69, 0.09, 0.12); // IndianRed
+//lutComfort.setDiscretize(true);
+lutComfort.setNumberOfValues(5);
+
+const lutSafety = vtk.Rendering.Core.vtkColorTransferFunction.newInstance();
+//lutSafety.addRGBPoint(0.0, 0.83, 0.83, 0.83); // lightGrey
+lutSafety.addRGBPoint(0.0, 0.83, 0.83, 1.0); // lightGrey
+lutSafety.addRGBPoint(1.0, 0.69, 0.09, 0.12); // IndianRed
+//lutComfort.setDiscretize(true);
+lutComfort.setNumberOfValues(2);
+
+function changeColours(selectElem) {
+    console.log(selectElem);
+    
+    if (selectElem.includes('summer') || selectElem.includes('winter')) {
+        mapper.setLookupTable(lutComfort);
+        mapper.setScalarRange([0, 5]);
+
+    } else if (selectElem.includes('allyear')) {
+        mapper.setLookupTable(lutSafety);
+        mapper.setScalarRange([0, 2]);
+    } else {
+        mapper.setLookupTable(lut);
+        mapper.setScalarRange([0, 15]);
+    }
+
+    //mapper.setLookupTable(lut);
+};
 
 
 // ------------------------------------------------
@@ -131,21 +178,24 @@ fullScreenRenderer.addController(`<table>
     </tbody>
 </table>
 <div>
-    <select with="100%">
-        <option value="stlWidget">STL</option>
+    <select name="addons" id="addons-select" with="100%" style="width: 60%; padding: 0.5em 0.2em;">
+        <option value="BOI">STL - BOI</option>
+        <option value="BDGS">STL - BDGS</option>
     </select>
     <button class="create">+</button>
     <button class="delete">-</button>
 </div>
     <div>
-        <select name="comfort" id="comfort-select" with="100%">
-            <option value="comfortSummer">Summer comfort</option>
-            <option value="comfortWinter">Winter comfort</option>
-            <option value="Safety">All year safety</option>
+        <select name="comfort" id="comfort-select" with="100%" style="width: 100%; padding: 0.5em 0.2em;">
+            <option value="comfort">Comfort and Safety</option>
+            <option value="summer - LDDC">Summer comfort</option>
+            <option value="winter - LDDC">Winter comfort</option>
+            <option value="allyear - LDDC">All year safety</option>
         </select>
     </div>
     <div>
-        <select name="velocity" id="velocity-select" with="100%">
+        <select name="velocity" id="velocity-select" with="100%" style="width: 100%; padding: 0.5em 0.2em;">
+            <option value="Velocity">Velocity</option>
             <option value="0deg">0 deg</option>
             <option value="30deg">30 deg</option>
             <option value="60deg">60 deg</option>
@@ -172,22 +222,36 @@ const comfortElem = document.querySelector('select#comfort-select');
 const velocityElem = document.querySelector('select#velocity-select');
 
 velocityElem.addEventListener('change', (e) => {
-    //const selectElem = Number(e.target.value);
     const selectElem = document.getElementById('velocity-select').value;
     changeArray(selectElem);
+    changeColours(selectElem);
     renderWindow.render();
 });
 
 
+comfortElem.addEventListener('change', (e) => {
+    const selectElem = document.getElementById('comfort-select').value;
+    changeArray(selectElem);
+    changeColours(selectElem);
+    renderWindow.render();
+});
 
 // create widget
 buttonCreate.addEventListener('click', () => {
-    const w = stlWidget();
+    const selectElem = document.getElementById('addons-select').value;
+    console.log(w);
+    var w = stlWidget(selectElem);
     renderWindow.render();
 });
 
 buttonDelete.addEventListener('click', () => {
-    renderer.removeActor(stlActor);
+    const selectElem = document.getElementById('addons-select').value;
+    //renderer.removeActor(stlActor);
+    //renderer.removeActor(stlActors.selectElem);
+    console.log(stlActors.selectElem);
+    const visibility = stlActors.selectElem.getVisibility();
+    console.log(visibility);
+    stlActors.selectElem.setVisibility(!visibility);
     renderWindow.render();
 });
 
