@@ -38,34 +38,44 @@ function stlWidget(selectElem) {
 //    stlActors.selectElem = stlActor;
 //    stlMappers.selectElem = stlMapper;
 //    stlReaders.selectElem = stlReader;
-    console.log(stlActors.selectElem);
-    var stls = createSTL();
-    stlReaders.selectElem = stls[0]; 
-    stlMappers.selectElem = stls[1]; 
-    stlActors.selectElem = stls[2];
-    console.log(stlReaders.selectElem);
-    console.log(stlActors.selectElem);
-    console.log(stlMappers.selectElem);
-
-//    stlActors.selectElem.setMapper(stlMapper);
-//    stlMappers.selectElem.setInputConnection(stlReader.getOutputPort());
-    stlActors.selectElem.setMapper(stlMappers.selectElem);
-    stlMappers.selectElem.setInputConnection(stlReaders.selectElem.getOutputPort());
-    stlReaders.selectElem.setUrl(stlurl).then(() => {
-        renderer.addActor(stlActors.selectElem);
-        renderer.resetCamera();
-        renderWindow.render();
-    });
-
-
-    //stlActor.setMapper(stlMapper);
-    //stlMapper.setInputConnection(stlReader.getOutputPort());
-    //stlReader.setUrl(stlurl).then(() => {
-    //    renderer.addActor(stlActor);
-    //    renderer.resetCamera();
-    //    renderWindow.render();
-    //});
-    return stlActors.selectElem
+    // checkin if the key does NOT exist in dictionary, then create keys
+    if (!(selectElem in stlReaders)) {
+        var stls = createSTL();
+        //stlReaders.selectElem = stls[0]; 
+        //stlMappers.selectElem = stls[1]; 
+        //stlActors.selectElem = stls[2];
+        stlReaders[selectElem] = stls[0]; 
+        stlMappers[selectElem] = stls[1]; 
+        stlActors[selectElem] = stls[2];
+        console.log(stlReaders.selectElem);
+        console.log(stlActors.selectElem);
+        console.log(stlMappers.selectElem);
+    
+    //    stlActors.selectElem.setMapper(stlMapper);
+    //    stlMappers.selectElem.setInputConnection(stlReader.getOutputPort());
+        stlActors[selectElem].setMapper(stlMappers[selectElem]);
+        stlMappers[selectElem].setInputConnection(stlReaders[selectElem].getOutputPort());
+        stlReaders[selectElem].setUrl(stlurl).then(() => {
+            renderer.addActor(stlActors[selectElem]);
+            renderer.resetCamera();
+            renderWindow.render();
+        });
+    
+    
+        //stlActor.setMapper(stlMapper);
+        //stlMapper.setInputConnection(stlReader.getOutputPort());
+        //stlReader.setUrl(stlurl).then(() => {
+        //    renderer.addActor(stlActor);
+        //    renderer.resetCamera();
+        //    renderWindow.render();
+        //});
+        return stlActors[selectElem]
+        } else {
+            const visibility = stlActors[selectElem].getVisibility();
+            console.log(visibility);
+            stlActors[selectElem].setVisibility(!visibility);
+            renderWindow.render();
+        }
 
 };
 
@@ -162,7 +172,7 @@ function changeColours(selectElem) {
 // ------------------------------------------------
 // UI control handling
 // ------------------------------------------------
-fullScreenRenderer.addController(`<table>
+fullScreenRenderer.addController(`<table width="250">
     <thead>
         <tr>
             <th>Focus</th>
@@ -182,8 +192,9 @@ fullScreenRenderer.addController(`<table>
         <option value="BOI">STL - BOI</option>
         <option value="BDGS">STL - BDGS</option>
     </select>
-    <button class="create">+</button>
-    <button class="delete">-</button>
+<!--    <button class="create">+</button> -->
+<!--   <button class="delete">-</button> -->
+    <button class="create">Show/Hide</button>
 </div>
     <div>
         <select name="comfort" id="comfort-select" with="100%" style="width: 100%; padding: 0.5em 0.2em;">
@@ -216,7 +227,7 @@ fullScreenRenderer.addController(`<table>
 const widgetListElem = document.querySelector('.widgetList');
 // const selectElem = document.querySelector('select');
 const buttonCreate = document.querySelector('button.create');
-const buttonDelete = document.querySelector('button.delete');
+//const buttonDelete = document.querySelector('button.delete');
 
 const comfortElem = document.querySelector('select#comfort-select');
 const velocityElem = document.querySelector('select#velocity-select');
@@ -239,21 +250,21 @@ comfortElem.addEventListener('change', (e) => {
 // create widget
 buttonCreate.addEventListener('click', () => {
     const selectElem = document.getElementById('addons-select').value;
-    console.log(w);
     var w = stlWidget(selectElem);
     renderWindow.render();
 });
 
-buttonDelete.addEventListener('click', () => {
-    const selectElem = document.getElementById('addons-select').value;
-    //renderer.removeActor(stlActor);
-    //renderer.removeActor(stlActors.selectElem);
-    console.log(stlActors.selectElem);
-    const visibility = stlActors.selectElem.getVisibility();
-    console.log(visibility);
-    stlActors.selectElem.setVisibility(!visibility);
-    renderWindow.render();
-});
+//buttonDelete.addEventListener('click', () => {
+//    const selectElem = document.getElementById('addons-select').value;
+//    console.log(selectElem);
+//    //renderer.removeActor(stlActor);
+//    //renderer.removeActor(stlActors.selectElem);
+//    console.log(stlActors);
+//    const visibility = stlActors[selectElem].getVisibility();
+//    console.log(visibility);
+//    stlActors[selectElem].setVisibility(!visibility);
+//    renderWindow.render();
+//});
 
 // Toggle flag
 //function toggle(e) {
