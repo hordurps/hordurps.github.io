@@ -1,7 +1,7 @@
 const container = document.querySelector('#container');
 
 const fullScreenRenderer = vtk.Rendering.Misc.vtkFullScreenRenderWindow.newInstance({
-    background: [0, 0, 0],
+    background: [0.8, 0.8, 0.8],
 });
 
 
@@ -29,65 +29,58 @@ function createSTL() {
     return [stlReader,stlMapper, stlActor];
 };
 
+
 function stlWidget(selectElem) {
     if (selectElem.includes('BOI')) {
+        var widget = 'STL';
         var stlurl = 'https://hordurps.github.io/BOI.stl';
-    } else {
+    } else if (selectElem.includes('BDGS')) {
+        var widget = 'STL';
         var stlurl = 'https://hordurps.github.io/BDGS.stl';
+    } else if (selectElem.includes('SBAR')) {
+        var widget = 'SBAR';
     }
-//    stlActors.selectElem = stlActor;
-//    stlMappers.selectElem = stlMapper;
-//    stlReaders.selectElem = stlReader;
     // checkin if the key does NOT exist in dictionary, then create keys
-    if (!(selectElem in stlReaders)) {
-        var stls = createSTL();
-        //stlReaders.selectElem = stls[0]; 
-        //stlMappers.selectElem = stls[1]; 
-        //stlActors.selectElem = stls[2];
-        stlReaders[selectElem] = stls[0]; 
-        stlMappers[selectElem] = stls[1]; 
-        stlActors[selectElem] = stls[2];
-        console.log(stlReaders.selectElem);
-        console.log(stlActors.selectElem);
-        console.log(stlMappers.selectElem);
-    
-    //    stlActors.selectElem.setMapper(stlMapper);
-    //    stlMappers.selectElem.setInputConnection(stlReader.getOutputPort());
-        stlActors[selectElem].setMapper(stlMappers[selectElem]);
-        stlMappers[selectElem].setInputConnection(stlReaders[selectElem].getOutputPort());
-        stlReaders[selectElem].setUrl(stlurl).then(() => {
-            renderer.addActor(stlActors[selectElem]);
-            renderer.resetCamera();
-            renderWindow.render();
-        });
-    
-    
-        //stlActor.setMapper(stlMapper);
-        //stlMapper.setInputConnection(stlReader.getOutputPort());
-        //stlReader.setUrl(stlurl).then(() => {
-        //    renderer.addActor(stlActor);
-        //    renderer.resetCamera();
-        //    renderWindow.render();
-        //});
-        return stlActors[selectElem]
-        } else {
-            const visibility = stlActors[selectElem].getVisibility();
-            console.log(visibility);
-            stlActors[selectElem].setVisibility(!visibility);
+    if (widget.includes('STL')) {
+        if (!(selectElem in stlReaders)) {
+            var stls = createSTL();
+            stlReaders[selectElem] = stls[0]; 
+            stlMappers[selectElem] = stls[1]; 
+            stlActors[selectElem] = stls[2];
+            console.log(stlReaders.selectElem);
+            console.log(stlActors.selectElem);
+            console.log(stlMappers.selectElem);
+        
+            stlActors[selectElem].setMapper(stlMappers[selectElem]);
+            stlMappers[selectElem].setInputConnection(stlReaders[selectElem].getOutputPort());
+            stlReaders[selectElem].setUrl(stlurl).then(() => {
+                renderer.addActor(stlActors[selectElem]);
+                renderer.resetCamera();
+                renderWindow.render();
+            });
+        
+            return stlActors[selectElem]
+            } else {
+                const visibility = stlActors[selectElem].getVisibility();
+                console.log(visibility);
+                stlActors[selectElem].setVisibility(!visibility);
+                renderWindow.render();
+            }
+        } else if (widget.includes('SBAR')) {
+            createSBAR();
+            console.log(widget);
             renderWindow.render();
         }
 
 };
 
-let comforts = ['winter - LDDC', 'summer - LDDC', 'allyear - LDDC', 'winter - COL', 'summer - COL', 'allyear - COL'];
-let velocities = ['0deg', '30deg', '60deg', '90deg', '120deg', '150deg', '180deg', '210deg', '240deg', '270deg', '300deg', '330deg'];
+//let comforts = ['winter - LDDC', 'summer - LDDC', 'allyear - LDDC', 'winter - COL', 'summer - COL', 'allyear - COL'];
+let all_velocities = ['0deg', '30deg', '60deg', '90deg', '120deg', '150deg', '180deg', '210deg', '240deg', '270deg', '300deg', '330deg'];
 //console.log(document.body)
 
 // Pipeline (reader, mapper, actor)
 
 // Need to read VTP files instead of VTK
-// let url = 'https://hordurps.github.io/magU.vtp'
-//let magUurl = 'https://hordurps.github.io/velocities.vtp'
 let magUurl = 'https://hordurps.github.io/comfortAndVelocity.vtp'
 const reader = vtk.IO.XML.vtkXMLPolyDataReader.newInstance();
 
@@ -114,6 +107,22 @@ mapper.setScalarVisibility(true);
 const actor  = vtk.Rendering.Core.vtkActor.newInstance();
 reader.setUrl(magUurl).then(() => {
     const polydata = reader.getOutputData(0);
+    console.log(polydata);
+    const numberOfArrays = polydata.getPointData().getNumberOfArrays();
+    let velocities = []
+    let comforts = []
+    for (let step = 0; step < numberOfArrays; step++) {
+        const arrayName = polydata.getPointData().getArrayName(step);
+        if (arrayName.includes('deg')) {
+            velocities.push(arrayName);
+        } else if (arrayName.includes('LDDC')) {
+            comforts.push(arrayName);
+        }
+    }
+    console.log(velocities);
+    console.log(comforts);
+    let new_velocities = intersection_arrays(all_velocities, velocities);
+    add_options_to_select(new_velocities, comforts);
     actor.setMapper(mapper);
     mapper.setInputConnection(reader.getOutputPort());
     renderer.addActor(actor);
@@ -126,6 +135,13 @@ reader.setUrl(magUurl).then(() => {
 
     renderWindow.render();
 });
+renderWindow.render();
+
+function intersection_arrays (a,b) {
+    return a.filter(Set.prototype.has, new Set(b));
+
+}
+
 
 const lutComfort = vtk.Rendering.Core.vtkColorTransferFunction.newInstance();
 lutComfort.addRGBPoint(0.0, 0.56, 0.74, 0.56); // DarkSeaGreen
@@ -142,6 +158,10 @@ lutSafety.addRGBPoint(0.0, 0.83, 0.83, 1.0); // lightGrey
 lutSafety.addRGBPoint(1.0, 0.69, 0.09, 0.12); // IndianRed
 //lutComfort.setDiscretize(true);
 lutComfort.setNumberOfValues(2);
+
+const lutHighlight = vtk.Rendering.Core.vtkColorTransferFunction.newInstance();
+lutHighlight.setDiscretize(true);
+lutHighlight.setNumberOfValues(1);
 
 function changeColours(selectElem) {
     console.log(selectElem);
@@ -191,6 +211,7 @@ fullScreenRenderer.addController(`<table width="250">
     <select name="addons" id="addons-select" with="100%" style="width: 60%; padding: 0.5em 0.2em;">
         <option value="BOI">STL - BOI</option>
         <option value="BDGS">STL - BDGS</option>
+<!--        <option value="SBAR">Scalarbar</option> -->
     </select>
 <!--    <button class="create">+</button> -->
 <!--   <button class="delete">-</button> -->
@@ -199,14 +220,17 @@ fullScreenRenderer.addController(`<table width="250">
     <div>
         <select name="comfort" id="comfort-select" with="100%" style="width: 100%; padding: 0.5em 0.2em;">
             <option value="comfort">Comfort and Safety</option>
+    <!--
             <option value="summer - LDDC">Summer comfort</option>
             <option value="winter - LDDC">Winter comfort</option>
             <option value="allyear - LDDC">All year safety</option>
+    -->
         </select>
     </div>
     <div>
         <select name="velocity" id="velocity-select" with="100%" style="width: 100%; padding: 0.5em 0.2em;">
             <option value="Velocity">Velocity</option>
+    <!--
             <option value="0deg">0 deg</option>
             <option value="30deg">30 deg</option>
             <option value="60deg">60 deg</option>
@@ -219,10 +243,55 @@ fullScreenRenderer.addController(`<table width="250">
             <option value="270deg">270 deg</option>
             <option value="300deg">300 deg</option>
             <option value="330deg">330 deg</option>
+    -->
         </select>
     </div>
     `);
+
+function add_options_to_select(new_velocities, comforts) {
+    const velocitySelectElem = document.getElementById('velocity-select');
+    for (var i = 1; i <= new_velocities.length; i++) {
+        var opt = document.createElement('option');
+        opt.value = new_velocities[i-1];
+        opt.name = new_velocities[i-1];
+        opt.innerHTML = new_velocities[i-1];
+        velocitySelectElem.appendChild(opt);
+    }
     
+    const comfortSelectElem = document.getElementById('comfort-select');
+    for (var i = 1; i <= comforts.length; i++) {
+        var opt = document.createElement('option');
+        opt.value = comforts[i-1];
+        opt.name = comforts[i-1];
+        opt.innerHTML = comforts[i-1];
+        comfortSelectElem.appendChild(opt);
+    }
+}
+
+
+function updateValue(e) {
+    const newValue = Number(e.target.value);
+    //mapper.setScalarRange([newValue-0.25, newValue+0.25]);
+   // lut.setRange([newValue-0.25, newValue+0.25]);
+    lutHighlight.removeAllPoints();
+    lutHighlight.addRGBPoint(newValue, 0.0, 1.0, 1.0);
+    lutHighlight.setBelowRangeColor(0.0, 1.0, 1.0, 1.0);
+    lutHighlight.setAboveRangeColor(10.0, 1.0, 1.0, 1.0);
+    mapper.setLookupTable(lutHighlight);
+    renderWindow.render();
+}
+
+function createSBAR() {
+    updateUI();
+
+    var dragValue = document.querySelector('.value');
+    const range = mapper.getScalarRange();
+    console.log(range);
+    dragValue.setAttribute('min', 0.0);
+    dragValue.setAttribute('max', 15.0);
+    dragValue.setAttribute('value', 15.0)
+    dragValue.addEventListener('input', updateValue);
+};
 
 const widgetListElem = document.querySelector('.widgetList');
 // const selectElem = document.querySelector('select');
@@ -234,6 +303,7 @@ const velocityElem = document.querySelector('select#velocity-select');
 
 velocityElem.addEventListener('change', (e) => {
     const selectElem = document.getElementById('velocity-select').value;
+    document.querySelector('select#comfort-select').selectedIndex = 0;
     changeArray(selectElem);
     changeColours(selectElem);
     renderWindow.render();
@@ -242,6 +312,7 @@ velocityElem.addEventListener('change', (e) => {
 
 comfortElem.addEventListener('change', (e) => {
     const selectElem = document.getElementById('comfort-select').value;
+    document.querySelector('select#velocity-select').selectedIndex = 0;
     changeArray(selectElem);
     changeColours(selectElem);
     renderWindow.render();
@@ -354,7 +425,17 @@ buttonCreate.addEventListener('click', () => {
 //        </tr>`;
 //}
 
-
+function updateUI() {
+    widgetListElem.innerHTML = `<table>
+        <tr>
+            <td>0.0</td>
+            <td>
+                <input class='value' type="range" min="0.0" max="15.0" step="1.0" value="0.0" />
+            </td>
+            <td>15.0</td>
+        </tr>
+    </table>`
+}
 //function updateUI() {
 //    const widgets = widgetManager.getWidgets();
 //    widgetListElem.innerHTML = widgets
@@ -384,9 +465,3 @@ buttonCreate.addEventListener('click', () => {
 //}
 
 
-//document.querySelector('.cmap').addEventListener('change', (e) => {
-//    const cmapChange = !!e.target.checked;
-//    lut.applyColorMap(cmaps.getPresetByName('Cool to Warm'));
-//    renderer.resetCamera();
-//    renderWindow.render();
-//})
