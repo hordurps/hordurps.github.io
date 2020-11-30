@@ -328,7 +328,9 @@ velocityElem.addEventListener('change', (e) => {
     document.querySelector('select#comfort-select').selectedIndex = 0;
     changeArray(selectElem);
     changeColours(selectElem);
-    add_sliderbar_to_options();
+    if (!(document.getElementById('SBAR'))){
+        add_sliderbar_to_options();
+    }
     renderWindow.render();
 });
 
