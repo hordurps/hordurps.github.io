@@ -67,7 +67,12 @@ function stlWidget(selectElem) {
                 renderWindow.render();
             }
         } else if (widget.includes('SBAR')) {
+            if (!(document.getElementById('sliderbar'))) {
             createSBAR();
+            } else {
+                document.getElementById('sliderbar').remove();
+                mapper.setScalarRange([0, 15.0]);
+            }
             console.log(widget);
             renderWindow.render();
         }
@@ -160,8 +165,9 @@ lutSafety.addRGBPoint(1.0, 0.69, 0.09, 0.12); // IndianRed
 lutComfort.setNumberOfValues(2);
 
 const lutHighlight = vtk.Rendering.Core.vtkColorTransferFunction.newInstance();
-lutHighlight.setDiscretize(true);
-lutHighlight.setNumberOfValues(1);
+lutHighlight.applyColorMap(cmap);
+lutHighlight.setMappingRange(0, 256);
+lutHighlight.updateRange();
 
 function changeColours(selectElem) {
     console.log(selectElem);
@@ -195,13 +201,14 @@ function changeColours(selectElem) {
 fullScreenRenderer.addController(`<table width="250">
     <thead>
         <tr>
-            <th>Focus</th>
-            <th>Widget</th>
+            <th>Wind Comfort</th>
+<!--            <th>Widget</th>
             <th title="Pickable">P</th>
             <th title="Visibility">V</th>
             <th title="ContextVisibility">C</th>
             <th title="HandleVisibility">H</th>
             <th></th>
+-->
         </tr>
     </thead>
     <tbody class="widgetList">
@@ -211,7 +218,7 @@ fullScreenRenderer.addController(`<table width="250">
     <select name="addons" id="addons-select" with="100%" style="width: 60%; padding: 0.5em 0.2em;">
         <option value="BOI">STL - BOI</option>
         <option value="BDGS">STL - BDGS</option>
-<!--        <option value="SBAR">Scalarbar</option> -->
+<!--        <option value="SBAR">Scalarbar</option>  -->
     </select>
 <!--    <button class="create">+</button> -->
 <!--   <button class="delete">-</button> -->
@@ -269,27 +276,42 @@ function add_options_to_select(new_velocities, comforts) {
 }
 
 
+function add_sliderbar_to_options(){
+    const addonsSelectElem = document.getElementById('addons-select');
+    var opt = document.createElement('option');
+    opt.value = 'SBAR';
+    opt.id = 'SBAR';
+    opt.name = 'SBAR';
+    opt.innerHTML = 'Scalarbar';
+    addonsSelectElem.appendChild(opt);
+    document.querySelector('select#addons-select').selectedIndex = 2;
+}
+
+
 function updateValue(e) {
     const newValue = Number(e.target.value);
     //mapper.setScalarRange([newValue-0.25, newValue+0.25]);
    // lut.setRange([newValue-0.25, newValue+0.25]);
-    lutHighlight.removeAllPoints();
-    lutHighlight.addRGBPoint(newValue, 0.0, 1.0, 1.0);
+    //lutHighlight.removeAllPoints();
+    //lutHighlight.addRGBPoint(newValue, 0.0, 1.0, 1.0);
     lutHighlight.setBelowRangeColor(0.0, 1.0, 1.0, 1.0);
     lutHighlight.setAboveRangeColor(10.0, 1.0, 1.0, 1.0);
+    lutHighlight.updateRange();
     mapper.setLookupTable(lutHighlight);
+    mapper.setScalarRange([newValue, 15.0]);
+    updateSliderUI(newValue);
     renderWindow.render();
 }
 
 function createSBAR() {
-    updateUI();
+    createSliderUI();
 
     var dragValue = document.querySelector('.value');
     const range = mapper.getScalarRange();
     console.log(range);
     dragValue.setAttribute('min', 0.0);
     dragValue.setAttribute('max', 15.0);
-    dragValue.setAttribute('value', 15.0)
+    dragValue.setAttribute('value', 0.0)
     dragValue.addEventListener('input', updateValue);
 };
 
@@ -306,6 +328,7 @@ velocityElem.addEventListener('change', (e) => {
     document.querySelector('select#comfort-select').selectedIndex = 0;
     changeArray(selectElem);
     changeColours(selectElem);
+    add_sliderbar_to_options();
     renderWindow.render();
 });
 
@@ -315,6 +338,12 @@ comfortElem.addEventListener('change', (e) => {
     document.querySelector('select#velocity-select').selectedIndex = 0;
     changeArray(selectElem);
     changeColours(selectElem);
+    if (document.getElementById('SBAR')){
+        document.getElementById('SBAR').remove()
+    }
+    if ((document.getElementById('sliderbar'))) {
+        document.getElementById('sliderbar').remove();
+    }
     renderWindow.render();
 });
 
@@ -425,14 +454,18 @@ buttonCreate.addEventListener('click', () => {
 //        </tr>`;
 //}
 
-function updateUI() {
+function updateSliderUI(currentValue) {
+    document.querySelector('td#minValue').innerHTML = currentValue;
+}
+
+function createSliderUI() {
     widgetListElem.innerHTML = `<table>
-        <tr>
-            <td>0.0</td>
+        <tr id='sliderbar'>
+            <td id='minValue'>0.0</td>
             <td>
                 <input class='value' type="range" min="0.0" max="15.0" step="1.0" value="0.0" />
             </td>
-            <td>15.0</td>
+            <td id='maxValue'>15.0</td>
         </tr>
     </table>`
 }
