@@ -134,10 +134,12 @@ reader.setUrl(magUurl).then(() => {
 
     // Render
     renderer.resetCamera();
-    renderer.getActiveCamera().setPosition(0, 0, 1050);
-    renderer.getActiveCamera().setFocalPoint(0, 0, 0.41);
-    renderer.getActiveCamera().setParallelScale(980);
+   // renderer.getActiveCamera().setPosition(0, 0, 1050);
+   // renderer.getActiveCamera().setFocalPoint(0, 0, 0.41);
+   // renderer.getActiveCamera().setParallelScale(980);
 
+    const page_load = document.getElementById('page_load');
+    page_load.parentNode.removeChild(page_load);
     renderWindow.render();
 });
 renderWindow.render();
