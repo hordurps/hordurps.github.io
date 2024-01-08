@@ -13,7 +13,7 @@ import io
 import base64
 
 from app import app
-from routes import home, vindafar, geomap, fdscsv #, vindrosir, vindafar
+from routes import home, vindafar, geomap, fdscsv, streams #, vindrosir, vindafar
 
 # dropdown = dbc.DropdownMenu([
 #     dbc.DropdownMenuItem("Home",href="/home", className='navbar-option'),
@@ -72,8 +72,8 @@ navbar = dbc.Navbar(
 )
 
 @app.callback(
-    Output("drawer", "opened"),
-    Output("drawer", "position"),
+    Output("drawer", "opened", allow_duplicate=True),
+    Output("drawer", "position", allow_duplicate=True),
     Input("drawer-button", "n_clicks"),
     prevent_initial_call=True,
     )
@@ -162,12 +162,13 @@ def drawer_demo(n_clicks):
 layout = html.Div([
     dcc.Location(id='url', refresh=False),
     navbar,
-    html.Div(id='page-content'
+    html.Div(id='the-page-content'
 )    ])
 
-@app.callback(Output(component_id='page-content',
-    component_property='children'), 
-    Input(component_id='url', component_property='pathname'))
+@app.callback(Output(component_id='the-page-content',
+    component_property='children', allow_duplicate=True), 
+    Input(component_id='url', component_property='pathname'), 
+    prevent_initial_call=True)
 def display_page(pathname):
     if (pathname == '/vindgreining' or pathname == '/'):
         return home.layout
@@ -179,8 +180,11 @@ def display_page(pathname):
         return vindafar.layout
     elif pathname == '/kort':
         return geomap.layout
+    elif pathname == '/straumlinur':
+        return streams.layout
     else:
         return home.layout
 
-#if __name__ == '__main__':
-#    app.run_server(debug=True)
+if __name__ == '__main__':
+    app.layout = layout
+    app.run_server(debug=True)

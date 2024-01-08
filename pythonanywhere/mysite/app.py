@@ -8,5 +8,5 @@ app = dash.Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP])
 #server = app.server
 app.config.suppress_callback_exceptions = True
 app.title = "HP ÖRUGG"
-import index
-app.layout = index.layout
+#import index
+#app.layout = index.layout

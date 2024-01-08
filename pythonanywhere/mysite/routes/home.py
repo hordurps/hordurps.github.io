@@ -32,6 +32,15 @@ container = html.Div([
 
                 # body / content
                 html.Div([
+                    html.Video(
+                        src="assets/blog/straumlinur.mp4",
+                        className='w-100 p-3',
+                        autoPlay=True,
+                        loop=True,
+                        muted=True, 
+                        controls=True, 
+                    ), 
+                    html.Figcaption("Straumlínur úr hermun á vindátt með tölulegu straumfræðilíkani.", style={'color':'#FFF'}),
                     html.Img(
                         src="/assets/blog/straumlinur.jpg",
                         className='w-100 p-3',

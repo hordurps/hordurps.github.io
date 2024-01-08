@@ -68,7 +68,7 @@ def project_and_metdata_locations(selected):
     
     #df = pd.concat([projects_df, stodvar_df],axis=0)
     #markerdata = [dict(name=df.iloc[i]['name'], lat=df.iloc[i].lat, lon=df.iloc[i].lon) for i in range(0, len(df))]
-    markers = [dl.CircleMarker(center=[df.iloc[i].lat, df.iloc[i].lon], children=dl.Popup(df.iloc[i]['name'])) for i in range(0, len(df))]
+    markers = [dl.CircleMarker(center=[df.iloc[i].lat, df.iloc[i].lon], children=dl.Popup(df.iloc[i]['name']), radius=10) for i in range(0, len(df))]
     return markers
 
 
