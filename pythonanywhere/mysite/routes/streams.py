@@ -76,7 +76,10 @@ def update_mesh(mesh, array):
     if "UsUref" in array or "Us" in array:
         cbar = ["Cool to Warm (Extended)"]
     elif "nen" in array or "lddc" in array:
-        cbar = ["RdOrYl"]
+        #cbar = ["RdOrYl"]
+        #cbar = ["Rainbow Blended White"]
+        #cbar = ["Rainbow Desaturated"]
+        cbar = ["X Ray"]
     else:
         cbar = ["Cool to Warm (Extended)"]
 
@@ -272,7 +275,6 @@ def update_stl_toggle(toggleSTL):
 def updatePresetName(array, mesh, cubeAxes):
     #points, polys, elevation, color_range = updateWarp(scale_factor)
     arrays, points, polys, values, color_range, array, cbar = update_mesh(meshes[mesh], array)
-
     return [
         "grid" in cubeAxes,
         cbar[0], # name,
