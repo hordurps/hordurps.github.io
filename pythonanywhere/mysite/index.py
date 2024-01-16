@@ -13,7 +13,8 @@ import io
 import base64
 
 from app import app
-from routes import home, vindafar, geomap, fdscsv, streams #, vindrosir, vindafar
+#from routes import home, vindafar, geomap, fdscsv, streams #, vindrosir, vindafar
+from routes import streams #, vindrosir, vindafar
 
 # dropdown = dbc.DropdownMenu([
 #     dbc.DropdownMenuItem("Home",href="/home", className='navbar-option'),
