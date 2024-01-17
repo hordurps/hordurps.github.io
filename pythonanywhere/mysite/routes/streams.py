@@ -395,8 +395,6 @@ def update_streams(streams_filename):
 def check_streams_availability(currentArray):
     if any([u in currentArray for u in ["UsUref", "Us", "magU"]]):
         wdir = currentArray.split('_')[0]
-        print(wdir)
-        print(stream_mesh_ids)
         if any([stream_wdir==wdir for stream_mesh_id in stream_mesh_ids for stream_wdir in stream_mesh_id.replace(".vtk","").split("_") ]):
             return False
         else:
@@ -404,10 +402,10 @@ def check_streams_availability(currentArray):
     else:
         return True
 
-controls = [
+toggle_STL_controls = [
     dbc.Card(
         [
-            dbc.CardHeader("STL"),
+            dbc.CardHeader("Geometry"),
             dbc.CardBody(
                 [
                     dcc.Checklist(
@@ -418,24 +416,36 @@ controls = [
                         labelStyle={"display" : "block"},
                         value=stl_names
                         ),
-
-                    dcc.Checklist(
-                        id="toggle-cube-axes",
-                        options=[
-                            {"label": " Show axis grid", "value": "grid"},
-                        ],
-                        value=[],
-                        #labelStyle={"display": "inline-block"},
-                        labelStyle={"display": "block"},
-                    ),
-                    dcc.Checklist(
-                        id="toggle-streams",
-                        options=[{"label" : " Show streamlines", "value" : "streams", "disabled" : check_streams_availability(demoArray_name)}]
-                    )
                 ]
             ),
         ]
     ),
+]
+other_toggle_controls = [
+    dbc.Card(
+        [
+            dbc.CardHeader("Toggle"),
+            dbc.CardBody(
+                [
+                        dcc.Checklist(
+                            id="toggle-cube-axes",
+                            options=[
+                                {"label": " Show axis grid", "value": "grid"},
+                            ],
+                            value=[],
+                            #labelStyle={"display": "inline-block"},
+                            labelStyle={"display": "block"},
+                        ),
+                        dcc.Checklist(
+                            id="toggle-streams",
+                            options=[{"label" : " Show streamlines", "value" : "streams", "disabled" : check_streams_availability(demoArray_name)}]
+                        ),
+                ]
+            ),
+        ]
+    ),
+]
+selection_controls = [
     dbc.Card(
         [
             dbc.CardHeader("Selection"),
@@ -464,7 +474,9 @@ layout = dbc.Container(
     children=[
         dbc.Row(
             [
-                dbc.Col(width=4, children=controls),
+                dbc.Col(width=3, children=toggle_STL_controls),
+                dbc.Col(width=4, children=selection_controls),
+                dbc.Col(width=3, children=other_toggle_controls),
                 #dbc.Col(
                 #    children=dcc.Slider(
                 #        id="scale-factor",
