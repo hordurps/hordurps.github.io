@@ -76,6 +76,8 @@ for mesh_filename in f:
         id=f"{mesh_name}-rep",
         colorMapPreset=cbar, #"Cool to Warm (Extended)", 
         colorDataRange=color_range,
+        showCubeAxes=False,
+        cubeAxesStyle={"axisLabels": ["", "", "Altitude"]},
         actor={"visibility" : 1},
         mapper={"scalarVisibility": True, 
                 "colorByArrayName" : demoArray_name,
@@ -124,11 +126,47 @@ for mesh_filename in f:
 ####################### STREAMS ###############################################
 
 
-#streams_path = 'assets/streams/'
-#s = [f for f in os.listdir(streams_path) if f.endswith('.vtp')]
+def _load_streams(streams_filename, fieldName=None, point_arrays=[], cell_arrays=[]):
+    #streams_reader = vtk.vtkXMLPolyDataReader()
+    streams_reader = vtk.vtkUnstructuredGridReader()
+    streams_reader.SetFileName(streams_filename)
+    streams_reader.Update()
+    streams_mesh = to_mesh_state(streams_reader.GetOutput(), fieldName, point_arrays, cell_arrays)
+    return streams_mesh
+
+
+streams_path = 'assets/streams/'
+#streams = [f for f in os.listdir(streams_path) if f.endswith('.vtp')]
+streams = [f for f in os.listdir(streams_path) if f.endswith('.vtk')]
+stream_test = pv.read(os.path.join(streams_path, streams[0]))
+stream_arrays = list(stream_test.point_data)
+demoArrayStream_name = stream_arrays[0]
+demoArrayStream_values = stream_test[demoArrayStream_name]
+
+stream_reps, stream_mesh_ids = [], []
+for stream in streams:
+    stream_mesh = _load_streams(os.path.join(streams_path, stream), point_arrays=stream_arrays)
+    stream_name = stream.replace(".vtk", "")
+    child = dash_vtk.GeometryRepresentation(
+            id=f"{stream_name}-rep",
+            mapper={
+                "colorByArrayName": stream_arrays[0],
+                "scalarMode": 3,
+                "interpolateScalarsBeforeMapping": True,
+                "scalarVisibility": True,
+            },
+            #property={
+            #    "edgeVisibility": False,
+            #    'representation': 2,
+            #},
+            actor={"visibility" : 0},
+            colorMapPreset="Cool to Warm (Extended)", 
+            colorDataRange=[0,15],
+            children=[dash_vtk.Mesh(id=f"{stream_name}-mesh", state=stream_mesh)],
+        ) 
+stream_reps.append(child)
+stream_mesh_ids.append(f"{stream}")
 #streams = {f'{m}' : pv.read(os.path.join(streams_path, m)) for m in s}
-#stream = pv.read(os.path.join(streams_path, s[0]))
-#stream_arrays = list(stream.point_data)
 
 ##########################################################################
 ####################### STL ###############################################
@@ -354,6 +392,17 @@ def update_streams(streams_filename):
 #        #),
 #    ],
 #)
+def check_streams_availability(currentArray):
+    if any([u in currentArray for u in ["UsUref", "Us", "magU"]]):
+        wdir = currentArray.split('_')[0]
+        print(wdir)
+        print(stream_mesh_ids)
+        if any([stream_wdir==wdir for stream_mesh_id in stream_mesh_ids for stream_wdir in stream_mesh_id.replace(".vtk","").split("_") ]):
+            return False
+        else:
+            return True
+    else:
+        return True
 
 controls = [
     dbc.Card(
@@ -364,7 +413,7 @@ controls = [
                     dcc.Checklist(
                         id='toggle-stls',
                         options=[
-                            {"label" : f"{stl_name}", "value" : f"{stl_name}"} for stl_name in stl_names
+                            {"label" : f" {stl_name}", "value" : f"{stl_name}"} for stl_name in stl_names
                         ],
                         labelStyle={"display" : "block"},
                         value=stl_names
@@ -379,6 +428,10 @@ controls = [
                         #labelStyle={"display": "inline-block"},
                         labelStyle={"display": "block"},
                     ),
+                    dcc.Checklist(
+                        id="toggle-streams",
+                        options=[{"label" : " Show streamlines", "value" : "streams", "disabled" : check_streams_availability(demoArray_name)}]
+                    )
                 ]
             ),
         ]
@@ -540,9 +593,21 @@ def initial_loading(stls, selected_mesh_name, selected_array_name):
                 "color": "white",
             },
         )
+
+    pointer = dash_vtk.GeometryRepresentation(
+            id="pick-rep",
+            actor={"visibility": False},
+            children=[
+                dash_vtk.Algorithm(
+                    id="pick-sphere",
+                    vtkClass="vtkSphereSource",
+                    state={"radius": 100},
+                )
+            ],
+    )
     return dash_vtk.View(
         id="vtk-view",
-        children = buildings_rep + list(meshes_child.values()) + [tooltip],
+        children = buildings_rep + list(meshes_child.values()) + stream_reps + [pointer, tooltip],
         pickingModes = ["hover"], # ["click"],
         background=[i/255.0 for i in [25, 34, 61]],
         )
@@ -555,15 +620,20 @@ def initial_loading(stls, selected_mesh_name, selected_array_name):
     + [Output(item.id, "mapper") for item in meshes_child.values()]
     + [Output("dropdown-array-preset", "options"), Output("dropdown-array-preset", "value")]
     + [Output(item.id, "colorMapPreset") for item in meshes_child.values()]
-    + [Output(item.id, "colorDataRange") for item in meshes_child.values()],
+    + [Output(item.id, "colorDataRange") for item in meshes_child.values()]
+    + [Output(item.id, "showCubeAxes") for item in meshes_child.values()]
+    + [Output(item.id, "actor") for item in stream_reps]
+    + [Output("toggle-streams", "options"), Output("toggle-streams", "value")],
     [
         Input("toggle-stls", "value"),
         Input("dropdown-meshes", "value"),
-        Input("dropdown-array-preset", "value")
+        Input("dropdown-array-preset", "value"),
+        Input("toggle-cube-axes", "value"),
+        Input("toggle-streams", "value")
     ],
     prevent_initial_call=True
     )
-def update_scene(stls, selected_mesh_name, selected_array_name):
+def update_scene(stls, selected_mesh_name, selected_array_name, cubeAxes, showStreams):
     triggered = dash.callback_context.triggered
     triggered_mesh, triggered_array, derived_array = None, None, None
     # update geom visibility
@@ -577,6 +647,19 @@ def update_scene(stls, selected_mesh_name, selected_array_name):
         ]
     else:
         geom_visibility = [dash.no_update for item in buildings_rep]
+
+    if triggered and "toggle-streams" in triggered[0]["prop_id"]:
+        if showStreams:
+            streams_visibility = [
+            {"visibility" : 1}
+            if selected_array_name.split("_")[0] in part.id
+            else {"visibility" : 0}
+            for part in stream_reps
+            ]
+        else:
+            streams_visibility = [{"visibility" : 0 }] * len(stream_reps)
+    else:
+        streams_visibility = [dash.no_update for item in stream_reps]
 
 
     vtk_mapper_triggered = False
@@ -638,13 +721,32 @@ def update_scene(stls, selected_mesh_name, selected_array_name):
         vtk_cbar_name.append(cbar)
         vtk_cbar_range.append(color_range)
 
+    if triggered_array is not None:
+        disable_streams = check_streams_availability(triggered_array)
+    elif derived_array is not None: 
+        disable_streams = check_streams_availability(derived_array)
+    else:
+        disable_streams = check_streams_availability(selected_array_name)
+
+    if disable_streams:
+        toggle_streams = [[{"label" : " Show streamlines", "value" : "streams", "disabled" : disable_streams}], [] ]
+        streams_visibility = [{"visibility" : 0 }] * len(stream_reps)
+    else:
+        toggle_streams = [[{"label" : " Show streamlines", "value" : "streams", "disabled" : disable_streams}], showStreams ]
+
     # update surface coloring
     if triggered and triggered[0]["value"] == "solid":
         mapper = {"scalarVisibility" : False}
         surface_state = [mapper for item in buildings_rep]
     else:
         surface_state = [dash.no_update] * len(buildings_rep)
-    return [random.random()] + geom_visibility + surface_state + vtk_visibility + vtk_mapper + dropdown_array + vtk_cbar_name + vtk_cbar_range
+
+
+    cubeAxisVisible = ["grid" in cubeAxes] * 2
+
+    #print(streams_visibility)
+
+    return [random.random()] + geom_visibility + surface_state + vtk_visibility + vtk_mapper + dropdown_array + vtk_cbar_name + vtk_cbar_range + cubeAxisVisible + streams_visibility + toggle_streams
 
 def _trigger_mapper(arrayName, selected_mesh_name):
     vtk_mapper = [
@@ -741,62 +843,62 @@ def _trigger_mapper(arrayName, selected_mesh_name):
 ##            )
 ##        return dash.no_update, dash.no_update, dash.no_update
 ##    return [""], {}, {"visibility": False}
-#@app.callback(
-#    [
-#        Output("tooltip", "children"),
-#        Output("pick-sphere", "state"),
-#        Output("pick-rep", "actor"),
-#    ],
-#    [
-#        Input("vtk-view", "clickInfo"),
-#        Input("vtk-view", "hoverInfo"),
-#        Input("dropdown-meshes", "value"),
-#    ],
-#)
-#def onInfo(clickData, hoverData, selected_mesh):
-#    sphere_state = {"resolution" : 12}
-#    sphere_state["radius"] = 1
-#    messages = []
-#    info = hoverData if hoverData else clickData
-#    if info:
-#        if (
-#            "representationId" in info
-#            and info["representationId"] == "vtk-representation"
-#        ):
-#            sphere_state["center"] = info["worldPosition"]
-#            #ds_name = info["representationId"].replace("-rep", "")
-#            #mesh = meshes[ds_name]
-#            mesh = meshes[selected_mesh]
-#
-#            if mesh: 
-#                xyx = info["worldPosition"]
-#                idx = mesh.FindPoint(xyx)
-#                if idx > -1:
-#                    sphere_state["center"] = mesh.GetPoints().GetPoint(idx)
-#                    point_data = mesh.GetPointData()
-#                    size = point_data.GetNumberOfArrays()
-#                    for i in range(size):
-#                        array = point_data.GetArray(i)
-#                        name = array.GetName()
-#                        nb_comp = array.GetNumberOfComponents()
-#                        value = array.GetValue(idx)
-#                        value_str = f"{array.GetValue(idx):.2f}"
-#                        norm_str = ""
-#                        if nb_comp == 3:
-#                            value = array.GetTuple3(idx)
-#                            norm = (value[0]**2 + value[1]**2 + value[2]**2)**0.5
-#                            norm_str = f" norm({norm:.2f})"
-#                            value_str = ", ".join([f"{v:.2f}" for v in value])
-#                        mstr = f"{name}: {value_str} {norm_str}"
-#                        messages.append(mstr)
-#
-#
-#                    return (["\n".join(messages)], sphere_state, {"visibility" : True},)
-#                return ([json.dumps(info, indent=2)], sphere_state, {"visibility" : True},)
-#            #return (
-#            #    [json.dumps(info, indent=2)],
-#            #    sphere_state, #{"center": info["worldPosition"]},
-#            #    {"visibility": True},
-#            #)
-#        return dash.no_update, dash.no_update, dash.no_update
-#    return [""], {}, {"visibility": False}
+@app.callback(
+    [
+        Output("tooltip", "children"),
+        Output("pick-sphere", "state"),
+        Output("pick-rep", "actor"),
+    ],
+    [
+        Input("vtk-view", "clickInfo"),
+        Input("vtk-view", "hoverInfo"),
+        Input("dropdown-meshes", "value"),
+    ],
+)
+def onInfo(clickData, hoverData, selected_mesh):
+    sphere_state = {"resolution" : 12}
+    sphere_state["radius"] = 1
+    messages = []
+    info = hoverData if hoverData else clickData
+    if info:
+        if (
+            "representationId" in info
+            and info["representationId"] == selected_mesh+'-rep'
+        ):
+            sphere_state["center"] = info["worldPosition"]
+            #ds_name = info["representationId"].replace("-rep", "")
+            #mesh = meshes[ds_name]
+            mesh = meshes[selected_mesh+'.vtk']
+
+            if mesh: 
+                xyx = info["worldPosition"]
+                idx = mesh.FindPoint(xyx)
+                if idx > -1:
+                    sphere_state["center"] = mesh.GetPoints().GetPoint(idx)
+                    point_data = mesh.GetPointData()
+                    size = point_data.GetNumberOfArrays()
+                    for i in range(size):
+                        array = point_data.GetArray(i)
+                        name = array.GetName()
+                        nb_comp = array.GetNumberOfComponents()
+                        value = array.GetValue(idx)
+                        value_str = f"{array.GetValue(idx):.2f}"
+                        norm_str = ""
+                        if nb_comp == 3:
+                            value = array.GetTuple3(idx)
+                            norm = (value[0]**2 + value[1]**2 + value[2]**2)**0.5
+                            norm_str = f" norm({norm:.2f})"
+                            value_str = ", ".join([f"{v:.2f}" for v in value])
+                        mstr = f"{name}: {value_str} {norm_str}"
+                        messages.append(mstr)
+
+
+                    return (["\n".join(messages)], sphere_state, {"visibility" : True},)
+                return ([json.dumps(info, indent=2)], sphere_state, {"visibility" : True},)
+            #return (
+            #    [json.dumps(info, indent=2)],
+            #    sphere_state, #{"center": info["worldPosition"]},
+            #    {"visibility": True},
+            #)
+        return dash.no_update, dash.no_update, dash.no_update
+    return [""], {}, {"visibility": False}
