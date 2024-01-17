@@ -888,7 +888,7 @@ def onInfo(clickData, hoverData, selected_mesh):
     if info:
         if (
             "representationId" in info
-            and info["representationId"] == selected_mesh+'-rep'
+            and info["representationId"] == selected_mesh+f'-rep{iname}'
         ):
             sphere_state["center"] = info["worldPosition"]
             #ds_name = info["representationId"].replace("-rep", "")
