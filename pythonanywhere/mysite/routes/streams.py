@@ -727,6 +727,9 @@ def update_scene(stls, selected_mesh_name, selected_array_name, cubeAxes, showSt
                 elif array == derived_array:
                     cbar = _get_cbar_name(derived_array)
                     color_range = _get_color_range(meshes[selected_mesh_name+'.vtk'][derived_array])
+                else:
+                    cbar = _get_cbar_name(selected_array_name)
+                    color_range = _get_color_range(meshes[selected_mesh_name+'.vtk'][selected_array_name])
         else: 
             cbar = "Cool to Warm (Extended)"
             color_range = [0, 15]
