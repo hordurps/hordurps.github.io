@@ -39,14 +39,18 @@ f = [f for f in os.listdir(vtk_path) if f.endswith('.vtk')]
 meshes = {f'{mesh}' : pv.read(os.path.join(vtk_path, mesh)) for mesh in f}
 mesh_arrays = {mesh_name.replace(".vtk", "") : list(mesh.point_data) for mesh_name, mesh in meshes.items()}
 
-def _get_color_range(values):
+def _get_color_range(values, mesh_name=None):
     """
         Velocity should have a range from 0 to 15
         Comfort should have a range from 0 to 4
         Safety should have a range from 0 to 2
     """
-    maxVal = np.min([15, np.max(values)])
-    minVal = np.max([0, np.min(values)])
+    if mesh_name is not None and "probability_analysis" in mesh_name:
+        maxVal = 345
+        minVal = -15
+    else:
+        maxVal = np.min([15, np.max(values)])
+        minVal = np.max([0, np.min(values)])
     color_range = [minVal, maxVal]
     return color_range
 
@@ -67,20 +71,25 @@ meshes_child = {}
 mesh_names = []
 mesh_ids = {}
 #for mesh_filename, mesh in meshes.items():
-for mesh_filename in f:
+for i, mesh_filename in enumerate(f):
     mesh_name = mesh_filename.replace(".vtk","")
     mesh = _load_vtk(os.path.join(vtk_path, mesh_filename), point_arrays=mesh_arrays[mesh_name])
     demoArray_name = mesh_arrays[mesh_name][0]
     demoArray_values = meshes[mesh_name+'.vtk'][demoArray_name]
-    color_range = _get_color_range(demoArray_values)
+    color_range = _get_color_range(demoArray_values, mesh_name)
     cbar = _get_cbar_name(demoArray_name)
+
+    if i == len(f)-1:
+        visibility = 1
+    else:
+        visibility = 0
     child = dash_vtk.GeometryRepresentation(
         id=f"{mesh_name}-rep{iname}",
         colorMapPreset=cbar, #"Cool to Warm (Extended)", 
         colorDataRange=color_range,
         showCubeAxes=False,
         cubeAxesStyle={"axisLabels": ["", "", "Altitude"]},
-        actor={"visibility" : 1},
+        actor={"visibility" : visibility},
         mapper={"scalarVisibility": True, 
                 "colorByArrayName" : demoArray_name,
                 "scalarMode" : 3,
@@ -420,7 +429,9 @@ toggle_STL_controls = [
                         ),
                 ]
             ),
-        ]
+        ],
+        color="danger",
+        outline=True,
     ),
 ]
 other_toggle_controls = [
@@ -444,7 +455,9 @@ other_toggle_controls = [
                         ),
                 ]
             ),
-        ]
+        ],
+        color="danger",
+        outline=True,
     ),
 ]
 selection_controls = [
@@ -463,9 +476,11 @@ selection_controls = [
                             options=mesh_arrays[mesh_name],
                             value=demoArray_name,
                         ),
-                ]
+                ], 
             ),
-        ]
+        ],
+        color="danger",
+        outline=True,
     ),
 ]
 
@@ -619,12 +634,21 @@ def initial_loading(stls, selected_mesh_name, selected_array_name):
                 )
             ],
     )
-    return dash_vtk.View(
+
+    vtk_view = dash_vtk.View(
         id=f"vtk-view{iname}",
         children = buildings_rep + list(meshes_child.values()) + stream_reps + [pointer, tooltip],
         pickingModes = ["hover"], # ["click"],
         background=[i/255.0 for i in [25, 34, 61]],
         )
+    return vtk_view
+
+    #return dash_vtk.View(
+    #    id=f"vtk-view{iname}",
+    #    children = buildings_rep + list(meshes_child.values()) + stream_reps + [pointer, tooltip],
+    #    pickingModes = ["hover"], # ["click"],
+    #    background=[i/255.0 for i in [25, 34, 61]],
+    #    )
 
 @app.callback(
     [Output(f"vtk-view{iname}", "triggerRender")]
@@ -725,16 +749,16 @@ def update_scene(stls, selected_mesh_name, selected_array_name, cubeAxes, showSt
             for array in mesh_arrays[mesh_name]: 
                 if array == triggered_array:
                     cbar = _get_cbar_name(triggered_array)
-                    color_range = _get_color_range(meshes[selected_mesh_name+'.vtk'][triggered_array])
+                    color_range = _get_color_range(meshes[selected_mesh_name+'.vtk'][triggered_array], mesh_name)
                     break
                 elif array == derived_array:
                     cbar = _get_cbar_name(derived_array)
-                    color_range = _get_color_range(meshes[selected_mesh_name+'.vtk'][derived_array])
+                    color_range = _get_color_range(meshes[selected_mesh_name+'.vtk'][derived_array], mesh_name)
                     break
                 else:
                     cbar = _get_cbar_name(selected_array_name)
                     try:
-                        color_range = _get_color_range(meshes[selected_mesh_name+'.vtk'][selected_array_name])
+                        color_range = _get_color_range(meshes[selected_mesh_name+'.vtk'][selected_array_name], mesh_name)
                     except:
                         color_range = [0,1]
         else: 
@@ -766,7 +790,7 @@ def update_scene(stls, selected_mesh_name, selected_array_name, cubeAxes, showSt
         surface_state = [dash.no_update] * len(buildings_rep)
 
 
-    cubeAxisVisible = ["grid" in cubeAxes] * 2
+    cubeAxisVisible = ["grid" in cubeAxes] * len(meshes_child) #2
 
 
     #print(streams_visibility)
