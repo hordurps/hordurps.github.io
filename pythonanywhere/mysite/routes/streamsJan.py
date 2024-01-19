@@ -54,13 +54,18 @@ def _get_color_range(values, mesh_name=None):
     color_range = [minVal, maxVal]
     return color_range
 
-def _get_cbar_name(arrayName):
-    if "nen" in arrayName or "lddc" in arrayName:
-        cbar = "X Ray"
-    elif any([u in arrayName for u in ["UsUref", "Us", "magU"]]):
-        cbar = "Cool to Warm (Extended)"
+def _get_cbar_name(arrayName, mesh_name=None):
+
+        
+    if (mesh_name is not None and "probability_analysis" in mesh_name):
+        cbar = "Rainbow Desaturated"
     else:
-        cbar = "Cool to Warm (Extended)"
+        if "nen" in arrayName or "lddc" in arrayName:
+            cbar = "X Ray"
+        elif any([u in arrayName for u in ["UsUref", "Us", "magU"]]):
+            cbar = "Cool to Warm (Extended)"
+        else:
+            cbar = "Cool to Warm (Extended)"
     return cbar
 
 #mesh = pv.read(os.path.join(vtk_path, f[0]))
@@ -77,7 +82,7 @@ for i, mesh_filename in enumerate(f):
     demoArray_name = mesh_arrays[mesh_name][0]
     demoArray_values = meshes[mesh_name+'.vtk'][demoArray_name]
     color_range = _get_color_range(demoArray_values, mesh_name)
-    cbar = _get_cbar_name(demoArray_name)
+    cbar = _get_cbar_name(demoArray_name, mesh_name)
 
     if i == len(f)-1:
         visibility = 1
@@ -616,10 +621,15 @@ def initial_loading(stls, selected_mesh_name, selected_array_name):
             id=f"tooltip{iname}",
             style={
                 "position": "absolute",
-                "bottom": "25px",
+                "bottom": "5px",
                 "left": "25px",
-                "zIndex": 1,
+                "zIndex": 4,
                 "color": "white",
+                "display" : "flex",
+                "flex-flow" : "column wrap",
+                "background-color"  :"#19223d",
+                "border" : "1px solid red", 
+                #"max-height" : "50%"
             },
         )
 
@@ -748,15 +758,15 @@ def update_scene(stls, selected_mesh_name, selected_array_name, cubeAxes, showSt
         if mesh_name == selected_mesh_name:
             for array in mesh_arrays[mesh_name]: 
                 if array == triggered_array:
-                    cbar = _get_cbar_name(triggered_array)
+                    cbar = _get_cbar_name(triggered_array, mesh_name)
                     color_range = _get_color_range(meshes[selected_mesh_name+'.vtk'][triggered_array], mesh_name)
                     break
                 elif array == derived_array:
-                    cbar = _get_cbar_name(derived_array)
+                    cbar = _get_cbar_name(derived_array, mesh_name)
                     color_range = _get_color_range(meshes[selected_mesh_name+'.vtk'][derived_array], mesh_name)
                     break
                 else:
-                    cbar = _get_cbar_name(selected_array_name)
+                    cbar = _get_cbar_name(selected_array_name, mesh_name)
                     try:
                         color_range = _get_color_range(meshes[selected_mesh_name+'.vtk'][selected_array_name], mesh_name)
                     except:
@@ -790,7 +800,12 @@ def update_scene(stls, selected_mesh_name, selected_array_name, cubeAxes, showSt
         surface_state = [dash.no_update] * len(buildings_rep)
 
 
-    cubeAxisVisible = ["grid" in cubeAxes] * len(meshes_child) #2
+    #cubeAxisVisible = ["grid" in cubeAxes] * len(meshes_child) #2
+    cubeAxisVisible = ["grid" in cubeAxes
+        if selected_mesh_name in mesh_name
+        else False
+        for mesh_name in meshes_child.keys()
+        ]
 
 
     #print(streams_visibility)
@@ -902,9 +917,10 @@ def _trigger_mapper(arrayName, selected_mesh_name):
         Input(f"vtk-view{iname}", "clickInfo"),
         Input(f"vtk-view{iname}", "hoverInfo"),
         Input(f"dropdown-meshes{iname}", "value"),
+        Input(f"dropdown-array-preset{iname}", "value"),
     ],
 )
-def onInfo(clickData, hoverData, selected_mesh):
+def onInfo(clickData, hoverData, selected_mesh, selected_array_name):
     sphere_state = {"resolution" : 12}
     sphere_state["radius"] = 1
     messages = []
@@ -919,6 +935,12 @@ def onInfo(clickData, hoverData, selected_mesh):
             #mesh = meshes[ds_name]
             mesh = meshes[selected_mesh+'.vtk']
 
+            if "probability_analysis" in selected_mesh:
+                filterOutput = True
+                season, vel, field, order = selected_array_name.split('_')
+            else:
+                filterOutput = False
+
             if mesh: 
                 xyx = info["worldPosition"]
                 idx = mesh.FindPoint(xyx)
@@ -929,6 +951,8 @@ def onInfo(clickData, hoverData, selected_mesh):
                     for i in range(size):
                         array = point_data.GetArray(i)
                         name = array.GetName()
+                        if filterOutput and f"{vel}" not in name:
+                            continue
                         nb_comp = array.GetNumberOfComponents()
                         value = array.GetValue(idx)
                         value_str = f"{array.GetValue(idx):.2f}"
@@ -940,7 +964,6 @@ def onInfo(clickData, hoverData, selected_mesh):
                             value_str = ", ".join([f"{v:.2f}" for v in value])
                         mstr = f"{name}: {value_str} {norm_str}"
                         messages.append(mstr)
-
 
                     return (["\n".join(messages)], sphere_state, {"visibility" : True},)
                 return ([json.dumps(info, indent=2)], sphere_state, {"visibility" : True},)
