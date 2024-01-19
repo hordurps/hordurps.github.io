@@ -181,8 +181,8 @@ for stream in streams:
             colorDataRange=[0,15],
             children=[dash_vtk.Mesh(id=f"{stream_name}-mesh{iname}", state=stream_mesh)],
         ) 
-stream_reps.append(child)
-stream_mesh_ids.append(f"{stream}{iname}")
+    stream_reps.append(child)
+    stream_mesh_ids.append(f"{stream}{iname}")
 #streams = {f'{m}' : pv.read(os.path.join(streams_path, m)) for m in s}
 
 ##########################################################################
