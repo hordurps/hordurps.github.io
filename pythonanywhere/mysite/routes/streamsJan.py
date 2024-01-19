@@ -75,6 +75,7 @@ def _get_cbar_name(arrayName, mesh_name=None):
 meshes_child = {}
 mesh_names = []
 mesh_ids = {}
+f.append(f.pop(f.index([v for v in f if "grades" in v][0])))
 #for mesh_filename, mesh in meshes.items():
 for i, mesh_filename in enumerate(f):
     mesh_name = mesh_filename.replace(".vtk","")
@@ -627,8 +628,9 @@ def initial_loading(stls, selected_mesh_name, selected_array_name):
                 "color": "white",
                 "display" : "flex",
                 "flex-flow" : "column wrap",
-                "background-color"  :"#19223d",
-                "border" : "1px solid red", 
+                #"background-color"  :"#19223d",
+                #"border" : "1px solid red", 
+                #"padding" : "10px"
                 #"max-height" : "50%"
             },
         )
