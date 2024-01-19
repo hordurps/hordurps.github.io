@@ -31,7 +31,39 @@ def _load_vtk(vtk_filename, fieldName=None, point_arrays=[], cell_arrays=[]):
     reader = vtk.vtkPolyDataReader()
     reader.SetFileName(vtk_filename)
     reader.Update()
+
+    #reader = _compute_normals(reader)
     return to_mesh_state(reader.GetOutput(), fieldName, point_arrays, cell_arrays)
+
+def _compute_normals(reader):
+    """
+        Attempt to compute normals as per smooth shading in pyvista
+
+        Does not work..
+    """
+    cell_normals = True
+    point_normals = True
+    split_vertices = True
+    feature_angle = 30
+    consistent_normals = True
+    auto_orient_normals = False
+    non_manifold_traversal = True
+    track_vertices = False
+    alg = vtk.vtkPolyDataNormals()
+    alg.SetInputData(reader.GetOutput())
+    alg.SetComputeCellNormals(cell_normals)
+    alg.SetComputePointNormals(point_normals)
+    alg.SetSplitting(split_vertices)
+    alg.SetConsistency(consistent_normals)
+    alg.SetAutoOrientNormals(auto_orient_normals)
+    alg.SetNonManifoldTraversal(non_manifold_traversal)
+    alg.SetFeatureAngle(feature_angle)
+    alg.Update()
+    return alg
+
+
+
+
 
 
 vtk_path = f'assets/vtk{iname}/'
@@ -198,19 +230,24 @@ stl_path = f'assets/stl{iname}/'
 stls = [os.path.join(stl_path, s) for s in os.listdir(stl_path) if s.endswith('.stl')]
 
 buildings_rep, buildings_mesh_ids, buildings_meshes, stl_names = [], [], [], []
-for stl in stls:
-    stl_mesh = _load_stl(stl)
-    stl_name = stl.split("/")[-1].replace(".stl","")
-    child = dash_vtk.GeometryRepresentation(
-        id=f"{stl_name}-rep{iname}",
-        actor={"visibility" : 1},
-        mapper={"scalarVisibility" : False},
-        children=[dash_vtk.Mesh(id=f"{stl_name}-mesh{iname}", state=stl_mesh)]
-    )
-    buildings_rep.append(child)
-    buildings_mesh_ids.append(f"{stl_name}-mesh{iname}")
-    buildings_meshes.append(stl_mesh)
-    stl_names.append(stl_name)
+if stls:
+    toggle_stl_visbility = 'block'
+    for stl in stls:
+        stl_mesh = _load_stl(stl)
+        stl_name = stl.split("/")[-1].replace(".stl","")
+        child = dash_vtk.GeometryRepresentation(
+            id=f"{stl_name}-rep{iname}",
+            actor={"visibility" : 1},
+            mapper={"scalarVisibility" : False},
+            children=[dash_vtk.Mesh(id=f"{stl_name}-mesh{iname}", state=stl_mesh)]
+        )
+        buildings_rep.append(child)
+        buildings_mesh_ids.append(f"{stl_name}-mesh{iname}")
+        buildings_meshes.append(stl_mesh)
+        stl_names.append(stl_name)
+else:
+    toggle_stl_visbility = 'none'
+
 
 ##########################################################################
 
@@ -420,6 +457,7 @@ def check_streams_availability(currentArray):
         return True
 
 toggle_STL_controls = [
+html.Div(
     dbc.Card(
         [
             dbc.CardHeader("Geometry"),
@@ -439,6 +477,8 @@ toggle_STL_controls = [
         color="danger",
         outline=True,
     ),
+    style={'display' : toggle_stl_visbility}
+),
 ]
 other_toggle_controls = [
     dbc.Card(
@@ -458,6 +498,12 @@ other_toggle_controls = [
                         dcc.Checklist(
                             id=f"toggle-streams{iname}",
                             options=[{"label" : " Show streamlines", "value" : "streams", "disabled" : check_streams_availability(demoArray_name)}]
+                        ),
+                        dcc.Checklist(
+                            id=f"toggle-color{iname}",
+                            options=[{"label" : " Hide colour", "value" : "colour", "disabled" : False}],
+                            value=[],
+                            labelStyle={"display": "inline-block"},
                         ),
                 ]
             ),
@@ -497,80 +543,41 @@ layout = dbc.Container(
     children=[
         dbc.Row(
             [
-                dbc.Col(width=3, children=toggle_STL_controls),
                 dbc.Col(width=4, children=selection_controls),
                 dbc.Col(width=3, children=other_toggle_controls),
-                #dbc.Col(
-                #    children=dcc.Slider(
-                #        id="scale-factor",
-                #        min=0.1,
-                #        max=5,
-                #        step=0.1,
-                #        value=1,
-                #        marks={0.1: "0.1", 5: "5"},
-                #    )
-                #),
-                #dbc.Col(
-                #    children=dcc.Dropdown(
-                #        id="dropdown-meshes",
-                #        options=list(meshes.keys()),
-                #        value=list(meshes.keys())[0],
-                #    ),
-                #),
-                #dbc.Col(
-                #    children=dcc.Dropdown(
-                #        id="dropdown-array-preset",
-                #        options=arrays,
-                #        value=arrays[0],
-                #    ),
-                #),
-                #dbc.Col(
-                #    children=dcc.Dropdown(
-                #        id="dropdown-preset",
-                #        options=list(map(toDropOption, presets)),
-                #        value="coolwarm", #"erdc_rainbow_bright",
-                #    ),
-                #),
-                #dbc.Col(
-                #    children=dcc.Checklist(
-                #        id="toggle-cube-axes",
-                #        options=[
-                #            {"label": " Show axis grid", "value": "grid"},
-                #        ],
-                #        value=[],
-                #        labelStyle={"display": "inline-block"},
-                #    ),
-                #),
-                #dbc.Col(
-                #    children=dcc.Checklist(
-                #        id="toggle-stls",
-                #        options=[
-                #            {"label": " Show STL", "value": "stl"},
-                #        ],
-                #        value=["stl"],#[],
-                #        labelStyle={"display": "inline-block"},
-                #    ),
-                #),
+                dbc.Col(width=3, children=toggle_STL_controls),
+            ], id=f'top-row{iname}', style = {}
+            ),
+        dbc.Row(
+            [
                 dbc.Col(
-                    width=8,
+                    width=12,
                     children=[
                         html.Div(
                                 dbc.Spinner(color='light'),
                                 style={
-                                            "background-color": "#334c66",
-                                            "height": "calc(100vh - 230px)",
+                                            #"background-color": "#334c66",
+                                            "background-color" : "#19223d",
+                                            #"height": "calc(100vh - 230px)",
+                                            "height": "calc(100vh - 200px)",
                                             "width": "100%",
                                             "text-align": "center",
                                             "padding-top": "calc(50vh - 105px)",
+
+                                            "border" : "solid red 2px",
+                                            "border-radius" : "10px"
                                         },
+                                id=f"vtk-view-subcontainer{iname}",
                             ),
                     ],
                     id=f"vtk-view-container{iname}",
                     style={"height": "calc(100vh - 230px)", "width": "100%"}
                     )
+            
             ],
             #style={"height": "12%", "alignItems": "center"},
-            style={"margin-top" : "15px", "height": "calc(100vh - 230px)"},
+            #style={"margin-top" : "15px", "height": "calc(100vh - 230px)"},
+            style={"margin-top" : "15px", "height": "100%"},
         ),
         #dbc.Row(
         #    [dbc.Col(
@@ -673,17 +680,19 @@ def initial_loading(stls, selected_mesh_name, selected_array_name):
     + [Output(item.id, "colorDataRange") for item in meshes_child.values()]
     + [Output(item.id, "showCubeAxes") for item in meshes_child.values()]
     + [Output(item.id, "actor") for item in stream_reps]
-    + [Output(f"toggle-streams{iname}", "options"), Output(f"toggle-streams{iname}", "value")],
+    + [Output(f"toggle-streams{iname}", "options"), Output(f"toggle-streams{iname}", "value")]
+    + [Output(f"toggle-color{iname}", "value")],
     [
         Input(f"toggle-stls{iname}", "value"),
         Input(f"dropdown-meshes{iname}", "value"),
         Input(f"dropdown-array-preset{iname}", "value"),
         Input(f"toggle-cube-axes{iname}", "value"),
-        Input(f"toggle-streams{iname}", "value")
+        Input(f"toggle-streams{iname}", "value"),
+        Input(f"toggle-color{iname}", "value")
     ],
     prevent_initial_call=True
     )
-def update_scene(stls, selected_mesh_name, selected_array_name, cubeAxes, showStreams):
+def update_scene(stls, selected_mesh_name, selected_array_name, cubeAxes, showStreams, showColor):
     triggered = dash.callback_context.triggered
     triggered_mesh, triggered_array, derived_array = None, None, None
     # update geom visibility
@@ -750,6 +759,13 @@ def update_scene(stls, selected_mesh_name, selected_array_name, cubeAxes, showSt
         else {"scalarVisibility" : False}
         for mesh_name in meshes_child.keys()
         ]
+        if showStreams:
+            streams_visibility = [
+            {"visibility" : 1}
+            if selected_array_name.split("_")[0] in part.id
+            else {"visibility" : 0}
+            for part in stream_reps
+            ]
     else:
         if not vtk_mapper_triggered:
             vtk_mapper = [dash.no_update] * len(meshes_child)
@@ -794,6 +810,19 @@ def update_scene(stls, selected_mesh_name, selected_array_name, cubeAxes, showSt
     else:
         toggle_streams = [[{"label" : " Show streamlines", "value" : "streams", "disabled" : disable_streams}], showStreams ]
 
+    if triggered and f"toggle-color{iname}" in triggered[0]["prop_id"]:
+        vtk_mapper = [
+        {"scalarVisibility" : False}
+        if "colour" in showColor
+        else {"scalarVisibility" : True} 
+        for mesh in meshes_child.keys()
+        ]
+
+    if triggered and (f"dropdown-array-preset{iname}" in triggered[0]["prop_id"] or f"dropdown-meshes{iname}" in triggered[0]["prop_id"]):
+        toggleColor = [[]]
+    else:
+        toggleColor = [showColor]
+
     # update surface coloring
     if triggered and triggered[0]["value"] == "solid":
         mapper = {"scalarVisibility" : False}
@@ -812,7 +841,7 @@ def update_scene(stls, selected_mesh_name, selected_array_name, cubeAxes, showSt
 
     #print(streams_visibility)
 
-    return [random.random()] + geom_visibility + surface_state + vtk_visibility + vtk_mapper + dropdown_array + vtk_cbar_name + vtk_cbar_range + cubeAxisVisible + streams_visibility + toggle_streams
+    return [random.random()] + geom_visibility + surface_state + vtk_visibility + vtk_mapper + dropdown_array + vtk_cbar_name + vtk_cbar_range + cubeAxisVisible + streams_visibility + toggle_streams + toggleColor
 
 def _trigger_mapper(arrayName, selected_mesh_name):
     vtk_mapper = [

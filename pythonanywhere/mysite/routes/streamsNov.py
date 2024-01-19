@@ -20,7 +20,8 @@ import vtk as vtk
 
 from app import app
 
-iname="-nov"
+iname = "nov"
+iname="-jan_cp"
 
 def toDropOption(name):
     return {"label": name, "value": name}
@@ -31,7 +32,37 @@ def _load_vtk(vtk_filename, fieldName=None, point_arrays=[], cell_arrays=[]):
     reader = vtk.vtkPolyDataReader()
     reader.SetFileName(vtk_filename)
     reader.Update()
+
+    #reader = _compute_normals(reader)
     return to_mesh_state(reader.GetOutput(), fieldName, point_arrays, cell_arrays)
+
+def _compute_normals(reader):
+    """
+        Attempt to compute normals as per smooth shading in pyvista
+    """
+    cell_normals = False
+    point_normals = True
+    split_vertices = True
+    feature_angle = 30
+    consistent_normals = True
+    auto_orient_normals = False
+    non_manifold_traversal = True
+    track_vertices = False
+    alg = vtk.vtkPolyDataNormals()
+    alg.SetInputData(reader.GetOutput())
+    alg.SetComputeCellNormals(cell_normals)
+    alg.SetComputePointNormals(point_normals)
+    alg.SetSplitting(split_vertices)
+    alg.SetConsistency(consistent_normals)
+    alg.SetAutoOrientNormals(auto_orient_normals)
+    alg.SetNonManifoldTraversal(non_manifold_traversal)
+    alg.SetFeatureAngle(feature_angle)
+    alg.Update()
+    return alg
+
+
+
+
 
 
 vtk_path = f'assets/vtk{iname}/'
@@ -39,24 +70,33 @@ f = [f for f in os.listdir(vtk_path) if f.endswith('.vtk')]
 meshes = {f'{mesh}' : pv.read(os.path.join(vtk_path, mesh)) for mesh in f}
 mesh_arrays = {mesh_name.replace(".vtk", "") : list(mesh.point_data) for mesh_name, mesh in meshes.items()}
 
-def _get_color_range(values):
+def _get_color_range(values, mesh_name=None):
     """
         Velocity should have a range from 0 to 15
         Comfort should have a range from 0 to 4
         Safety should have a range from 0 to 2
     """
-    maxVal = np.min([15, np.max(values)])
-    minVal = np.max([0, np.min(values)])
+    if mesh_name is not None and "probability_analysis" in mesh_name:
+        maxVal = 345
+        minVal = -15
+    else:
+        maxVal = np.min([15, np.max(values)])
+        minVal = np.max([0, np.min(values)])
     color_range = [minVal, maxVal]
     return color_range
 
-def _get_cbar_name(arrayName):
-    if "nen" in arrayName or "lddc" in arrayName:
-        cbar = "X Ray"
-    elif any([u in arrayName for u in ["UsUref", "Us", "magU"]]):
-        cbar = "Cool to Warm (Extended)"
+def _get_cbar_name(arrayName, mesh_name=None):
+
+        
+    if (mesh_name is not None and "probability_analysis" in mesh_name):
+        cbar = "Rainbow Desaturated"
     else:
-        cbar = "Cool to Warm (Extended)"
+        if "nen" in arrayName or "lddc" in arrayName:
+            cbar = "X Ray"
+        elif any([u in arrayName for u in ["UsUref", "Us", "magU"]]):
+            cbar = "Cool to Warm (Extended)"
+        else:
+            cbar = "Cool to Warm (Extended)"
     return cbar
 
 #mesh = pv.read(os.path.join(vtk_path, f[0]))
@@ -66,21 +106,27 @@ def _get_cbar_name(arrayName):
 meshes_child = {}
 mesh_names = []
 mesh_ids = {}
+f.append(f.pop(f.index([v for v in f if "grades" in v][0])))
 #for mesh_filename, mesh in meshes.items():
-for mesh_filename in f:
+for i, mesh_filename in enumerate(f):
     mesh_name = mesh_filename.replace(".vtk","")
     mesh = _load_vtk(os.path.join(vtk_path, mesh_filename), point_arrays=mesh_arrays[mesh_name])
     demoArray_name = mesh_arrays[mesh_name][0]
     demoArray_values = meshes[mesh_name+'.vtk'][demoArray_name]
-    color_range = _get_color_range(demoArray_values)
-    cbar = _get_cbar_name(demoArray_name)
+    color_range = _get_color_range(demoArray_values, mesh_name)
+    cbar = _get_cbar_name(demoArray_name, mesh_name)
+
+    if i == len(f)-1:
+        visibility = 1
+    else:
+        visibility = 0
     child = dash_vtk.GeometryRepresentation(
         id=f"{mesh_name}-rep{iname}",
         colorMapPreset=cbar, #"Cool to Warm (Extended)", 
         colorDataRange=color_range,
         showCubeAxes=False,
         cubeAxesStyle={"axisLabels": ["", "", "Altitude"]},
-        actor={"visibility" : 1},
+        actor={"visibility" : visibility},
         mapper={"scalarVisibility": True, 
                 "colorByArrayName" : demoArray_name,
                 "scalarMode" : 3,
@@ -140,34 +186,35 @@ def _load_streams(streams_filename, fieldName=None, point_arrays=[], cell_arrays
 streams_path = f'assets/streams{iname}/'
 #streams = [f for f in os.listdir(streams_path) if f.endswith('.vtp')]
 streams = [f for f in os.listdir(streams_path) if f.endswith('.vtk')]
-stream_test = pv.read(os.path.join(streams_path, streams[0]))
-stream_arrays = list(stream_test.point_data)
-demoArrayStream_name = stream_arrays[0]
-demoArrayStream_values = stream_test[demoArrayStream_name]
 
 stream_reps, stream_mesh_ids = [], []
-for stream in streams:
-    stream_mesh = _load_streams(os.path.join(streams_path, stream), point_arrays=stream_arrays)
-    stream_name = stream.replace(".vtk", "")
-    child = dash_vtk.GeometryRepresentation(
-            id=f"{stream_name}-rep{iname}",
-            mapper={
-                "colorByArrayName": stream_arrays[0],
-                "scalarMode": 3,
-                "interpolateScalarsBeforeMapping": True,
-                "scalarVisibility": True,
-            },
-            #property={
-            #    "edgeVisibility": False,
-            #    'representation': 2,
-            #},
-            actor={"visibility" : 0},
-            colorMapPreset="Cool to Warm (Extended)", 
-            colorDataRange=[0,15],
-            children=[dash_vtk.Mesh(id=f"{stream_name}-mesh{iname}", state=stream_mesh)],
-        ) 
-stream_reps.append(child)
-stream_mesh_ids.append(f"{stream}{iname}")
+if streams:
+    stream_test = pv.read(os.path.join(streams_path, streams[0]))
+    stream_arrays = list(stream_test.point_data)
+    demoArrayStream_name = stream_arrays[0]
+    demoArrayStream_values = stream_test[demoArrayStream_name]
+    for stream in streams:
+        stream_mesh = _load_streams(os.path.join(streams_path, stream), point_arrays=stream_arrays)
+        stream_name = stream.replace(".vtk", "")
+        child = dash_vtk.GeometryRepresentation(
+                id=f"{stream_name}-rep{iname}",
+                mapper={
+                    "colorByArrayName": stream_arrays[0],
+                    "scalarMode": 3,
+                    "interpolateScalarsBeforeMapping": True,
+                    "scalarVisibility": True,
+                },
+                #property={
+                #    "edgeVisibility": False,
+                #    'representation': 2,
+                #},
+                actor={"visibility" : 0},
+                colorMapPreset="Cool to Warm (Extended)", 
+                colorDataRange=[0,15],
+                children=[dash_vtk.Mesh(id=f"{stream_name}-mesh{iname}", state=stream_mesh)],
+            ) 
+        stream_reps.append(child)
+        stream_mesh_ids.append(f"{stream}{iname}")
 #streams = {f'{m}' : pv.read(os.path.join(streams_path, m)) for m in s}
 
 ##########################################################################
@@ -183,19 +230,20 @@ stl_path = f'assets/stl{iname}/'
 stls = [os.path.join(stl_path, s) for s in os.listdir(stl_path) if s.endswith('.stl')]
 
 buildings_rep, buildings_mesh_ids, buildings_meshes, stl_names = [], [], [], []
-for stl in stls:
-    stl_mesh = _load_stl(stl)
-    stl_name = stl.split("/")[-1].replace(".stl","")
-    child = dash_vtk.GeometryRepresentation(
-        id=f"{stl_name}-rep{iname}",
-        actor={"visibility" : 1},
-        mapper={"scalarVisibility" : False},
-        children=[dash_vtk.Mesh(id=f"{stl_name}-mesh{iname}", state=stl_mesh)]
-    )
-    buildings_rep.append(child)
-    buildings_mesh_ids.append(f"{stl_name}-mesh{iname}")
-    buildings_meshes.append(stl_mesh)
-    stl_names.append(stl_name)
+if stls:
+    for stl in stls:
+        stl_mesh = _load_stl(stl)
+        stl_name = stl.split("/")[-1].replace(".stl","")
+        child = dash_vtk.GeometryRepresentation(
+            id=f"{stl_name}-rep{iname}",
+            actor={"visibility" : 1},
+            mapper={"scalarVisibility" : False},
+            children=[dash_vtk.Mesh(id=f"{stl_name}-mesh{iname}", state=stl_mesh)]
+        )
+        buildings_rep.append(child)
+        buildings_mesh_ids.append(f"{stl_name}-mesh{iname}")
+        buildings_meshes.append(stl_mesh)
+        stl_names.append(stl_name)
 
 ##########################################################################
 
@@ -404,7 +452,15 @@ def check_streams_availability(currentArray):
     else:
         return True
 
+
+if stls:
+    toggle_stl_visbility = 'block'
+else:
+    toggle_stl_visbility = 'none'
+
+
 toggle_STL_controls = [
+html.Div(
     dbc.Card(
         [
             dbc.CardHeader("Geometry"),
@@ -415,13 +471,18 @@ toggle_STL_controls = [
                         options=[
                             {"label" : f" {stl_name}", "value" : f"{stl_name}"} for stl_name in stl_names
                         ],
-                        labelStyle={"display" : "block"},
+                        labelStyle={"display" : "inline-block"},
+                        #labelStyle={"display" : "block"},
                         value=stl_names
                         ),
                 ]
             ),
-        ]
+        ],
+        color="danger",
+        outline=True,
     ),
+   style={'display' : toggle_stl_visbility}
+), 
 ]
 other_toggle_controls = [
     dbc.Card(
@@ -435,16 +496,24 @@ other_toggle_controls = [
                                 {"label": " Show axis grid", "value": "grid"},
                             ],
                             value=[],
-                            #labelStyle={"display": "inline-block"},
-                            labelStyle={"display": "block"},
+                            labelStyle={"display": "inline-block"},
+                            #labelStyle={"display": "block"},
                         ),
                         dcc.Checklist(
                             id=f"toggle-streams{iname}",
-                            options=[{"label" : " Show streamlines", "value" : "streams", "disabled" : check_streams_availability(demoArray_name)}]
+                            options=[{"label" : " Show streamlines", "value" : "streams", "disabled" : check_streams_availability(demoArray_name)}],
+                            labelStyle={"display": "inline-block"},
+                        ),
+                        dcc.Checklist(
+                            id=f"toggle-color{iname}",
+                            options=[{"label" : " Hide colour", "value" : "colour", "disabled" : False}],
+                            labelStyle={"display": "inline-block"},
                         ),
                 ]
             ),
-        ]
+        ],
+        color="danger",
+        outline=True,
     ),
 ]
 selection_controls = [
@@ -463,94 +532,67 @@ selection_controls = [
                             options=mesh_arrays[mesh_name],
                             value=demoArray_name,
                         ),
-                ]
+                ], 
             ),
-        ]
+        ],
+        color="danger",
+        outline=True,
     ),
 ]
 
 
 layout = dbc.Container(
     fluid=True,
-    #style={"height": "100vh"},
+    style={"height": "100vh"},
     children=[
         dbc.Row(
             [
-                dbc.Col(width=3, children=toggle_STL_controls),
-                dbc.Col(width=4, children=selection_controls),
-                dbc.Col(width=3, children=other_toggle_controls),
-                #dbc.Col(
-                #    children=dcc.Slider(
-                #        id="scale-factor",
-                #        min=0.1,
-                #        max=5,
-                #        step=0.1,
-                #        value=1,
-                #        marks={0.1: "0.1", 5: "5"},
-                #    )
-                #),
-                #dbc.Col(
-                #    children=dcc.Dropdown(
-                #        id="dropdown-meshes",
-                #        options=list(meshes.keys()),
-                #        value=list(meshes.keys())[0],
-                #    ),
-                #),
-                #dbc.Col(
-                #    children=dcc.Dropdown(
-                #        id="dropdown-array-preset",
-                #        options=arrays,
-                #        value=arrays[0],
-                #    ),
-                #),
-                #dbc.Col(
-                #    children=dcc.Dropdown(
-                #        id="dropdown-preset",
-                #        options=list(map(toDropOption, presets)),
-                #        value="coolwarm", #"erdc_rainbow_bright",
-                #    ),
-                #),
-                #dbc.Col(
-                #    children=dcc.Checklist(
-                #        id="toggle-cube-axes",
-                #        options=[
-                #            {"label": " Show axis grid", "value": "grid"},
-                #        ],
-                #        value=[],
-                #        labelStyle={"display": "inline-block"},
-                #    ),
-                #),
-                #dbc.Col(
-                #    children=dcc.Checklist(
-                #        id="toggle-stls",
-                #        options=[
-                #            {"label": " Show STL", "value": "stl"},
-                #        ],
-                #        value=["stl"],#[],
-                #        labelStyle={"display": "inline-block"},
-                #    ),
-                #),
-                dbc.Col(
-                    width=8,
-                    children=[
-                        html.Div(
-                                dbc.Spinner(color='light'),
-                                style={
-                                            "background-color": "#334c66",
-                                            "height": "calc(100vh - 230px)",
-                                            "width": "100%",
-                                            "text-align": "center",
-                                            "padding-top": "calc(50vh - 105px)",
-                                        },
-                            ),
-                    ],
-                    id=f"vtk-view-container{iname}",
-                    style={"height": "calc(100vh - 230px)", "width": "100%"}
-                    )
+                dbc.Col(children=selection_controls), # width = 4
+                dbc.Col(children=other_toggle_controls), # width = 3
+                dbc.Col(children=toggle_STL_controls), # width
             ],
-            #style={"height": "12%", "alignItems": "center"},
-            style={"margin-top" : "15px", "height": "calc(100vh - 230px)"},
+            style={"height": "12%", "alignItems": "center"},
         ),
+
+        html.Div(
+            children=[
+                html.Div(
+                        dbc.Spinner(color='light'),
+                        style={
+                            "background-color": "#334c66",
+                            "height": "calc(100vh - 230px)",
+                            "width" : "100%",
+                            "text-align": "center",
+                            "padding-top": "calc(50vh - 105px)",
+                            },
+                        ),
+                ],
+                id=f"vtk-view-container{iname}",
+                style={"height": "calc(100vh - 230px)", "width": "100%"}
+                )
+        #dbc.Row(
+        #    [
+        #        dbc.Col(
+        #            width=8,
+        #            children=[
+        #                html.Div(
+        #                        dbc.Spinner(color='light'),
+        #                        style={
+        #                                    "background-color": "#334c66",
+        #                                    "height": "calc(100vh - 230px)",
+        #                                    "width": "100%",
+        #                                    "text-align": "center",
+        #                                    "padding-top": "calc(50vh - 105px)",
+        #                                },
+        #                    ),
+        #            ],
+        #            id=f"vtk-view-container{iname}",
+        #            style={"height": "calc(100vh - 230px)", "width": "100%"}
+        #            )
+        #    ],
+        #    #style={"height": "12%", "alignItems": "center"},
+        #    style={"margin-top" : "15px", "height": "calc(100vh - 230px)"},
+        #),
         #dbc.Row(
         #    [dbc.Col(
         #        width=8,
@@ -601,10 +643,16 @@ def initial_loading(stls, selected_mesh_name, selected_array_name):
             id=f"tooltip{iname}",
             style={
                 "position": "absolute",
-                "bottom": "25px",
+                "bottom": "5px",
                 "left": "25px",
-                "zIndex": 1,
+                "zIndex": 4,
                 "color": "white",
+                "display" : "flex",
+                "flex-flow" : "column wrap",
+                #"background-color"  :"#19223d",
+                #"border" : "1px solid red", 
+                #"padding" : "10px"
+                #"max-height" : "50%"
             },
         )
 
@@ -619,12 +667,21 @@ def initial_loading(stls, selected_mesh_name, selected_array_name):
                 )
             ],
     )
-    return dash_vtk.View(
+
+    vtk_view = dash_vtk.View(
         id=f"vtk-view{iname}",
         children = buildings_rep + list(meshes_child.values()) + stream_reps + [pointer, tooltip],
         pickingModes = ["hover"], # ["click"],
         background=[i/255.0 for i in [25, 34, 61]],
         )
+    return vtk_view
+
+    #return dash_vtk.View(
+    #    id=f"vtk-view{iname}",
+    #    children = buildings_rep + list(meshes_child.values()) + stream_reps + [pointer, tooltip],
+    #    pickingModes = ["hover"], # ["click"],
+    #    background=[i/255.0 for i in [25, 34, 61]],
+    #    )
 
 @app.callback(
     [Output(f"vtk-view{iname}", "triggerRender")]
@@ -724,17 +781,17 @@ def update_scene(stls, selected_mesh_name, selected_array_name, cubeAxes, showSt
         if mesh_name == selected_mesh_name:
             for array in mesh_arrays[mesh_name]: 
                 if array == triggered_array:
-                    cbar = _get_cbar_name(triggered_array)
-                    color_range = _get_color_range(meshes[selected_mesh_name+'.vtk'][triggered_array])
+                    cbar = _get_cbar_name(triggered_array, mesh_name)
+                    color_range = _get_color_range(meshes[selected_mesh_name+'.vtk'][triggered_array], mesh_name)
                     break
                 elif array == derived_array:
-                    cbar = _get_cbar_name(derived_array)
-                    color_range = _get_color_range(meshes[selected_mesh_name+'.vtk'][derived_array])
+                    cbar = _get_cbar_name(derived_array, mesh_name)
+                    color_range = _get_color_range(meshes[selected_mesh_name+'.vtk'][derived_array], mesh_name)
                     break
                 else:
-                    cbar = _get_cbar_name(selected_array_name)
+                    cbar = _get_cbar_name(selected_array_name, mesh_name)
                     try:
-                        color_range = _get_color_range(meshes[selected_mesh_name+'.vtk'][selected_array_name])
+                        color_range = _get_color_range(meshes[selected_mesh_name+'.vtk'][selected_array_name], mesh_name)
                     except:
                         color_range = [0,1]
         else: 
@@ -766,7 +823,12 @@ def update_scene(stls, selected_mesh_name, selected_array_name, cubeAxes, showSt
         surface_state = [dash.no_update] * len(buildings_rep)
 
 
-    cubeAxisVisible = ["grid" in cubeAxes] * 2
+    #cubeAxisVisible = ["grid" in cubeAxes] * len(meshes_child) #2
+    cubeAxisVisible = ["grid" in cubeAxes
+        if selected_mesh_name in mesh_name
+        else False
+        for mesh_name in meshes_child.keys()
+        ]
 
 
     #print(streams_visibility)
@@ -878,9 +940,10 @@ def _trigger_mapper(arrayName, selected_mesh_name):
         Input(f"vtk-view{iname}", "clickInfo"),
         Input(f"vtk-view{iname}", "hoverInfo"),
         Input(f"dropdown-meshes{iname}", "value"),
+        Input(f"dropdown-array-preset{iname}", "value"),
     ],
 )
-def onInfo(clickData, hoverData, selected_mesh):
+def onInfo(clickData, hoverData, selected_mesh, selected_array_name):
     sphere_state = {"resolution" : 12}
     sphere_state["radius"] = 1
     messages = []
@@ -895,6 +958,12 @@ def onInfo(clickData, hoverData, selected_mesh):
             #mesh = meshes[ds_name]
             mesh = meshes[selected_mesh+'.vtk']
 
+            if "probability_analysis" in selected_mesh:
+                filterOutput = True
+                season, vel, field, order = selected_array_name.split('_')
+            else:
+                filterOutput = False
+
             if mesh: 
                 xyx = info["worldPosition"]
                 idx = mesh.FindPoint(xyx)
@@ -905,6 +974,8 @@ def onInfo(clickData, hoverData, selected_mesh):
                     for i in range(size):
                         array = point_data.GetArray(i)
                         name = array.GetName()
+                        if filterOutput and f"{vel}" not in name:
+                            continue
                         nb_comp = array.GetNumberOfComponents()
                         value = array.GetValue(idx)
                         value_str = f"{array.GetValue(idx):.2f}"
@@ -916,7 +987,6 @@ def onInfo(clickData, hoverData, selected_mesh):
                             value_str = ", ".join([f"{v:.2f}" for v in value])
                         mstr = f"{name}: {value_str} {norm_str}"
                         messages.append(mstr)
-
 
                     return (["\n".join(messages)], sphere_state, {"visibility" : True},)
                 return ([json.dumps(info, indent=2)], sphere_state, {"visibility" : True},)
