@@ -19,8 +19,10 @@ import os
 import vtk as vtk
 
 from app import app
+import sys
 
-iname="-nov"
+name = "opt3"
+iname=f"-{name}"
 
 def toDropOption(name):
     return {"label": name, "value": name}
@@ -71,7 +73,7 @@ f = [f for f in os.listdir(vtk_path) if f.endswith('.vtk')]
 meshes = {f'{mesh}' : pv.read(os.path.join(vtk_path, mesh)) for mesh in f}
 mesh_arrays = {mesh_name.replace(".vtk", "") : list(mesh.point_data) for mesh_name, mesh in meshes.items()}
 
-def _get_color_range(values, mesh_name=None):
+def _get_color_range(values, arrayName, mesh_name=None):
     """
         Velocity should have a range from 0 to 15
         Comfort should have a range from 0 to 4
@@ -81,8 +83,15 @@ def _get_color_range(values, mesh_name=None):
         maxVal = 345
         minVal = -15
     else:
-        maxVal = np.min([15, np.max(values)])
-        minVal = np.max([0, np.min(values)])
+        #maxVal = np.min([15, np.max(values)])
+        #minVal = np.max([0, np.min(values)])
+        if "nen" in arrayName or "lddc" in arrayName:
+            minVal, maxVal = -0.5, 2.5
+        elif any([u in arrayName for u in ["UsUref", "Us", "magU"]]):
+            minVal, maxVal = 0, 15
+        else:
+            minVal, maxVal = -0.5, 4.5
+
     color_range = [minVal, maxVal]
     return color_range
 
@@ -114,7 +123,7 @@ for i, mesh_filename in enumerate(f):
     mesh = _load_vtk(os.path.join(vtk_path, mesh_filename), point_arrays=mesh_arrays[mesh_name])
     demoArray_name = mesh_arrays[mesh_name][0]
     demoArray_values = meshes[mesh_name+'.vtk'][demoArray_name]
-    color_range = _get_color_range(demoArray_values, mesh_name)
+    color_range = _get_color_range(demoArray_values, demoArray_name, mesh_name)
     cbar = _get_cbar_name(demoArray_name, mesh_name)
 
     if i == len(f)-1:
@@ -187,34 +196,35 @@ def _load_streams(streams_filename, fieldName=None, point_arrays=[], cell_arrays
 streams_path = f'assets/streams{iname}/'
 #streams = [f for f in os.listdir(streams_path) if f.endswith('.vtp')]
 streams = [f for f in os.listdir(streams_path) if f.endswith('.vtk')]
-stream_test = pv.read(os.path.join(streams_path, streams[0]))
-stream_arrays = list(stream_test.point_data)
-demoArrayStream_name = stream_arrays[0]
-demoArrayStream_values = stream_test[demoArrayStream_name]
 
 stream_reps, stream_mesh_ids = [], []
-for stream in streams:
-    stream_mesh = _load_streams(os.path.join(streams_path, stream), point_arrays=stream_arrays)
-    stream_name = stream.replace(".vtk", "")
-    child = dash_vtk.GeometryRepresentation(
-            id=f"{stream_name}-rep{iname}",
-            mapper={
-                "colorByArrayName": stream_arrays[0],
-                "scalarMode": 3,
-                "interpolateScalarsBeforeMapping": True,
-                "scalarVisibility": True,
-            },
-            #property={
-            #    "edgeVisibility": False,
-            #    'representation': 2,
-            #},
-            actor={"visibility" : 0},
-            colorMapPreset="Cool to Warm (Extended)", 
-            colorDataRange=[0,15],
-            children=[dash_vtk.Mesh(id=f"{stream_name}-mesh{iname}", state=stream_mesh)],
-        ) 
-    stream_reps.append(child)
-    stream_mesh_ids.append(f"{stream}{iname}")
+if streams:
+    stream_test = pv.read(os.path.join(streams_path, streams[0]))
+    stream_arrays = list(stream_test.point_data)
+    demoArrayStream_name = stream_arrays[0]
+    demoArrayStream_values = stream_test[demoArrayStream_name]
+    for stream in streams:
+        stream_mesh = _load_streams(os.path.join(streams_path, stream), point_arrays=stream_arrays)
+        stream_name = stream.replace(".vtk", "")
+        child = dash_vtk.GeometryRepresentation(
+                id=f"{stream_name}-rep{iname}",
+                mapper={
+                    "colorByArrayName": stream_arrays[0],
+                    "scalarMode": 3,
+                    "interpolateScalarsBeforeMapping": True,
+                    "scalarVisibility": True,
+                },
+                #property={
+                #    "edgeVisibility": False,
+                #    'representation': 2,
+                #},
+                actor={"visibility" : 0},
+                colorMapPreset="Cool to Warm (Extended)", 
+                colorDataRange=[0,15],
+                children=[dash_vtk.Mesh(id=f"{stream_name}-mesh{iname}", state=stream_mesh)],
+            ) 
+        stream_reps.append(child)
+        stream_mesh_ids.append(f"{stream}{iname}")
 #streams = {f'{m}' : pv.read(os.path.join(streams_path, m)) for m in s}
 
 ##########################################################################
@@ -449,7 +459,7 @@ def update_streams(streams_filename):
 def check_streams_availability(currentArray):
     if any([u in currentArray for u in ["UsUref", "Us", "magU"]]):
         wdir = currentArray.split('_')[0]
-        if any([stream_wdir==wdir for stream_mesh_id in stream_mesh_ids for stream_wdir in stream_mesh_id.replace(".vtk","").split("_") ]):
+        if any([stream_wdir==wdir for stream_mesh_id in stream_mesh_ids for stream_wdir in stream_mesh_id.split(iname)[0].replace(".vtk","").split("_") ]):
             return False
         else:
             return True
@@ -564,8 +574,7 @@ layout = dbc.Container(
                                             "text-align": "center",
                                             "padding-top": "calc(50vh - 105px)",
 
-                                            "border" : "solid red 2px",
-                                            "border-radius" : "10px"
+                                            "border" : "solid red 0.1px",
                                         },
                                 id=f"vtk-view-subcontainer{iname}",
                             ),
@@ -659,8 +668,33 @@ def initial_loading(stls, selected_mesh_name, selected_array_name):
         children = buildings_rep + list(meshes_child.values()) + stream_reps + [pointer, tooltip],
         pickingModes = ["hover"], # ["click"],
         background=[i/255.0 for i in [25, 34, 61]],
+        #cameraViewUp=[0,1,0],
+        #cameraPosition=[0,0,1],
+        #cameraParallelProjection=False,
+        #triggerResetCamera=1,
+        style={"width" : "100%", "height" : "100%",}
         )
-    return vtk_view
+
+    vtk_view_return = html.Div(
+        vtk_view,
+        style={
+                    #"background-color": "#334c66",
+                    "background-color" : "#19223d",
+                    #"height": "calc(100vh - 230px)",
+                    #"height": "calc(100vh - 200px)",
+                    "height": "100%",
+                    "width": "100%",
+                    "text-align": "center",
+                    #"padding-top": "calc(50vh - 105px)",
+
+                    "border" : "solid red 0.1px",
+                },
+        id=f"vtk-view-subcontainer{iname}",
+    )
+
+
+    #return vtk_view
+    return vtk_view_return
 
     #return dash_vtk.View(
     #    id=f"vtk-view{iname}",
@@ -711,7 +745,8 @@ def update_scene(stls, selected_mesh_name, selected_array_name, cubeAxes, showSt
         if showStreams:
             streams_visibility = [
             {"visibility" : 1}
-            if selected_array_name.split("_")[0] in part.id
+            #if selected_array_name.split("_")[0] in part.id
+            if selected_array_name.split("_")[0] == part.id.split(f"-rep{iname}")[0].split('_')[-1]
             else {"visibility" : 0}
             for part in stream_reps
             ]
@@ -762,7 +797,8 @@ def update_scene(stls, selected_mesh_name, selected_array_name, cubeAxes, showSt
         if showStreams:
             streams_visibility = [
             {"visibility" : 1}
-            if selected_array_name.split("_")[0] in part.id
+            #if selected_array_name.split("_")[0] in part.id
+            if selected_array_name.split("_")[0] == part.id.split(f"-rep{iname}")[0].split('_')[-1]
             else {"visibility" : 0}
             for part in stream_reps
             ]
@@ -777,16 +813,16 @@ def update_scene(stls, selected_mesh_name, selected_array_name, cubeAxes, showSt
             for array in mesh_arrays[mesh_name]: 
                 if array == triggered_array:
                     cbar = _get_cbar_name(triggered_array, mesh_name)
-                    color_range = _get_color_range(meshes[selected_mesh_name+'.vtk'][triggered_array], mesh_name)
+                    color_range = _get_color_range(meshes[selected_mesh_name+'.vtk'][triggered_array], triggered_array, mesh_name)
                     break
                 elif array == derived_array:
                     cbar = _get_cbar_name(derived_array, mesh_name)
-                    color_range = _get_color_range(meshes[selected_mesh_name+'.vtk'][derived_array], mesh_name)
+                    color_range = _get_color_range(meshes[selected_mesh_name+'.vtk'][derived_array], derived_array, mesh_name)
                     break
                 else:
                     cbar = _get_cbar_name(selected_array_name, mesh_name)
                     try:
-                        color_range = _get_color_range(meshes[selected_mesh_name+'.vtk'][selected_array_name], mesh_name)
+                        color_range = _get_color_range(meshes[selected_mesh_name+'.vtk'][selected_array_name], selected_array_name, mesh_name)
                     except:
                         color_range = [0,1]
         else: 

@@ -16,6 +16,10 @@ from app import app
 #from routes import home, vindafar, geomap, fdscsv, streams #, vindrosir, vindafar
 from routes import streamsJan #, vindrosir, vindafar
 from routes import streamsNov #, vindrosir, vindafar
+from routes import streamsOpt1
+from routes import streamsOpt2
+from routes import streamsOpt3
+
 
 # dropdown = dbc.DropdownMenu([
 #     dbc.DropdownMenuItem("Home",href="/home", className='navbar-option'),
@@ -167,6 +171,9 @@ layout = html.Div([
     html.Div(id='the-page-content'
 )    ])
 
+routes = [r for r in os.listdir('routes') if r.endswith('.py')]
+streams = [r.split('.py')[0].split('streams')[-1].lower() for r in routes if "streams" in r]
+
 @app.callback(Output(component_id='the-page-content',
     component_property='children', allow_duplicate=True), 
     Input(component_id='url', component_property='pathname'), 
@@ -186,6 +193,15 @@ def display_page(pathname):
         return streamsJan.layout
     elif pathname == '/nov':
         return streamsNov.layout
+    elif pathname == '/opt1':
+        return streamsOpt1.layout
+    elif pathname == '/opt2':
+        return streamsOpt2.layout
+    elif pathname == '/opt3':
+        return streamsOpt3.layout
+    #elif any([stream in pathname for stream in streams]):
+    #    stream = [stream for stream in streams if stream in pathname][0]
+    #    return streams
     else:
         return home.layout
 
