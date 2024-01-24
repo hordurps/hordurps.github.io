@@ -28,7 +28,13 @@ def toDropOption(name):
 ####################### VTKS ###############################################
 
 def _load_vtk(vtk_filename, fieldName=None, point_arrays=[], cell_arrays=[]):
-    reader = vtk.vtkPolyDataReader()
+    reader = vtk.vtkGenericDataObjectReader()
+    reader.SetFileName(vtk_filename)
+    reader.Update()
+    if reader.IsFileStructuredGrid():
+        reader = vtk.vtkPolyDataReader()
+    else:
+        reader = vtk.vtkUnstructuredGridReader()
     reader.SetFileName(vtk_filename)
     reader.Update()
 
