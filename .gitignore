@@ -3,3 +3,5 @@
 *.stl
 *.vtk
 *.vtp
+
+pythonAnywhere/auth_test

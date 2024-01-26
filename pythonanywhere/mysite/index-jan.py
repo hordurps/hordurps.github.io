@@ -19,6 +19,9 @@ from routes import streamsNov #, vindrosir, vindafar
 from routes import streamsOpt1
 from routes import streamsOpt2
 from routes import streamsOpt3
+from routes import streamsOpt2update
+from routes import streamsDsk
+from routes import streamsFeb
 
 
 # dropdown = dbc.DropdownMenu([
@@ -199,6 +202,12 @@ def display_page(pathname):
         return streamsOpt2.layout
     elif pathname == '/opt3':
         return streamsOpt3.layout
+    elif pathname == '/opt2update':
+        return streamsOpt2update.layout
+    elif pathname == '/dsk':
+        return streamsDsk.layout
+    elif pathname == '/feb':
+        return streamsFeb.layout
     #elif any([stream in pathname for stream in streams]):
     #    stream = [stream for stream in streams if stream in pathname][0]
     #    return streams
